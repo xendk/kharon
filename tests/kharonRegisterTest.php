@@ -7,6 +7,10 @@
 include_once 'Kharon_CommandTestCase.php';
 
 class kharonRegisterCase extends Kharon_CommandTestCase {
+  public function setUp() {
+    $this->setUpDrupal(3);
+  }
+
   /**
    * Test that registering basically works.
    */
@@ -26,6 +30,8 @@ class kharonRegisterCase extends Kharon_CommandTestCase {
     // empty settings file. We'll need to come up with something better (the
     // easiest option is to rewrite the settings file to have some fake
     // settings).
-    $this->drush('kharon-register 2>&1', array('eris', $this->webroot()), $options);
+    foreach ($this->sites as $env => $def) {
+      $this->drush('kharon-register 2>&1', array('eris', $this->webroot(), $env), $options);
+    }
   }
 }
