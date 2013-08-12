@@ -13,15 +13,14 @@ function kharon_drush_command() {
     'kharon-server' => 'Server to use.',
     'kharon' => 'Local server setup.',
   );
+
   $items['kharon-register'] = array(
     'aliases' => array('kr'),
     'description' => 'Register a site.',
     'arguments' => array(
       'name' => 'Name of the site.',
     ),
-    'options' => array(
-      'path' => 'Path to the site root dir.',
-    ) + $common_options,
+    'options' => $common_options,
     'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
@@ -40,6 +39,9 @@ function kharon_drush_command() {
   return $items;
 }
 
+/**
+ * Validation for the register command.
+ */
 function drush_kharon_register_validate($name = NULL, $remote = NULL, $subsite = NULL) {
   if (empty($name)) {
     return drush_set_error('BAD_ARGUMENTS', dt('You need to provide a name for the site.'));
@@ -48,7 +50,7 @@ function drush_kharon_register_validate($name = NULL, $remote = NULL, $subsite =
     return drush_set_error('BAD_ARGUMENTS', dt('Invalid name.'));
   }
 
-  if (!drush_get_option('kharon-server', NULL)) {
+  if (!_kharon_is_client()) {
     // We're the end of the line, validate some more args.
     if (empty($remote)) {
       return drush_set_error('BAD_ARGUMENTS', dt('Missing remote.'));
@@ -60,17 +62,14 @@ function drush_kharon_register_validate($name = NULL, $remote = NULL, $subsite =
   }
 }
 
+/**
+ * Register command callback.
+ *
+ * Registers a new site server side.
+ */
 function drush_kharon_register($name, $remote, $subsite = NULL) {
-  if ($server = drush_get_option('kharon-server', NULL)) {
-    list($user, $host) = explode('@', $server);
-    // We create a fake alias on the fly.
-    $alias = array(
-      'remote-host' => $host,
-      'remote-user' => $user,
-    );
-    // Forward to server.
-    drush_invoke_process($alias, 'kharon-register', array($name, $remote, $subsite), array(), array('interactive' => TRUE));
-    return;
+  if (_kharon_is_client()) {
+    return _kharon_forward_to_server('kharon-register', func_get_args(), array());
   }
   else {
     // Ensure we're properly set up as a server.
@@ -395,4 +394,32 @@ function _kharon_validate_server() {
   }
 
   return $server;
+}
+
+/**
+ * Determine whether we're running as a client, or server.
+ */
+function _kharon_is_client() {
+  $server = drush_get_option('kharon-server', NULL);
+  return !empty($server);
+}
+
+/**
+ * Run command at server.
+ */
+function _kharon_forward_to_server($command, $args, $options) {
+  if ($server = drush_get_option('kharon-server', NULL)) {
+    list($user, $host) = explode('@', $server);
+    // We create a fake alias on the fly.
+    $alias = array(
+      'remote-host' => $host,
+      'remote-user' => $user,
+    );
+    // Forward to server.
+    $res = drush_invoke_process($alias, $command, $args, $options, array('interactive' => TRUE));
+    return $res['error_status'];
+  }
+  else {
+    return drush_set_error('BAD_SERVER', dt('Invalid or missing server setup.'));
+  }
 }
