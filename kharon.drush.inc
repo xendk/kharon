@@ -58,7 +58,6 @@ function drush_kharon_register_validate($name = NULL, $remote = NULL, $subsite =
     if (!($remote = _kharon_parse_remote($where))) {
       return drush_set_error('BAD_ARGUMENTS', dt('Invalid remote.'));
     }
-    drush_set_option('kharon-remote', $remote);
   }
 }
 
@@ -212,7 +211,7 @@ function drush_kharon_sniff($where, $what, $arg = NULL) {
       // When local, this is a no-op. When not we try to ssh in and see what
       // happns.
       if (!$remote['is_local']) {
-        if (!drush_shell_exec(_kharon_ssh_command('echo OK'))) {
+        if (!drush_shell_exec(_kharon_ssh_command($remote, 'echo OK'))) {
           $output = implode("\n", drush_shell_exec_output());
           if (preg_match('/Permission denied/', $output)) {
             return drush_set_error('SSH_KEY_ERROR', dt('Public key rejected.'));
@@ -231,7 +230,7 @@ function drush_kharon_sniff($where, $what, $arg = NULL) {
       $list_cmd = sprintf('cd %s && [ -d "sites" ] && for x in `ls sites`; do if [ -e "sites/$x/settings.php" ]; then echo $x;fi ; done', $remote['path']);
 
       if (!$remote['is_local']) {
-        $list_cmd = _kharon_ssh_command($list_cmd);
+        $list_cmd = _kharon_ssh_command($remote, $list_cmd);
       }
 
       if (drush_shell_exec($list_cmd)) {
@@ -250,7 +249,7 @@ function drush_kharon_sniff($where, $what, $arg = NULL) {
       $cat_cmd = sprintf('cat %s', $remote['path'] . '/sites/' . $arg . '/settings.php');
 
       if (!$remote['is_local']) {
-        $cat_cmd = _kharon_ssh_command($cat_cmd);
+        $cat_cmd = _kharon_ssh_command($remote, $cat_cmd);
       }
 
       if (drush_shell_exec($cat_cmd)) {
@@ -291,9 +290,9 @@ function _kharon_parse_remote($remote) {
 /**
  * Wraps a command in a ssh command.
  */
-function _kharon_ssh_command($command) {
-  $ssh_options = "-o PasswordAuthentication=no";
-  $remote = drush_get_option('kharon-remote');
+function _kharon_ssh_command($remote, $command) {
+  // Disable agent forwarding and password authentication.
+  $ssh_options = "-a -o PasswordAuthentication=no";
   $user = drush_escapeshellarg($remote['user']);
   $host = drush_escapeshellarg($remote['host']);
   return sprintf('ssh %s %s@%s %s', $ssh_options, $user, $host, drush_escapeshellarg($command));
