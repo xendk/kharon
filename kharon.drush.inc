@@ -368,13 +368,17 @@ function _kharon_validate_server() {
   if (is_string($server)) {
     $string_server = $server;
     $server = array('mysql' => array());
+    $parts = explode(':', $string_server);
+    if (count($parts) != 5 && count($parts) != 4) {
+      return drush_set_error('SERVER_ERROR', dt('Invalid server string.'));
+    }
     list(
       $server['path'],
       $server['mysql']['host'],
       $server['mysql']['user'],
       $server['mysql']['pass'],
       $server['mysql']['prefix']
-    ) = explode(':', $string_server);
+    ) = $parts;
   }
 
   if (empty($server['path']) || !file_exists($server['path'])) {
