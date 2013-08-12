@@ -15,23 +15,24 @@ class kharonRegisterCase extends Kharon_CommandTestCase {
    * Test that registering basically works.
    */
   function testBasic() {
-    // $options = array(
-    //   'kharon' => array(
-    //     'path' => UNISH_SANDBOX . '/kharon',
-    //   ),
-    // );
+    // We don't have a MySQL server, but register doesn't care.
+    $kharon_dir = UNISH_SANDBOX . '/kharon';
+    $options = array(
+      'kharon' => $kharon_dir . ':host:user:pass',
+    );
 
-    $options = array();
     // Ensure that register fails when pointed at a random non-Drupal directory.
     $this->drush('kharon-register', array('hades', UNISH_SANDBOX), $options, NULL, NULL, self::EXIT_ERROR);
 
-    // Should work on a proper site though.  However, this currenly fails as the
-    // site that wes built for the test was faked to the point of having an
-    // empty settings file. We'll need to come up with something better (the
-    // easiest option is to rewrite the settings file to have some fake
-    // settings).
+    // Should work on a proper site though.
     foreach ($this->sites as $env => $def) {
-      $this->drush('kharon-register 2>&1', array('eris', $this->webroot(), $env), $options);
+      $import_name = 'eris-' . $env;
+      $this->drush('kharon-register 2>&1', array($import_name, $this->webroot(), $env), $options);
+      $config_file = $kharon_dir . '/' . $import_name . '/config';
+      $this->assertFileExists($config_file);
+      $conf = unserialize(file_get_contents($config_file));
+      $this->assertEquals($this->webroot(), $conf['remote']);
+      $this->assertEquals($env, $conf['subsite']);
     }
   }
 }
