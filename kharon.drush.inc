@@ -72,6 +72,14 @@ function drush_kharon_register($name, $remote, $subsite = NULL) {
     drush_invoke_process($alias, 'kharon-register', array($name, $remote, $subsite), array(), array('interactive' => TRUE));
     return;
   }
+  else {
+    // Ensure we're properly set up as a server.
+    $server = _kharon_validate_server();
+    if (!$server) {
+      // _kharon_validate_server already set the error.
+      return $server;
+    }
+  }
 
   // First check that we can connect to the site.
   $res = drush_invoke_process($alias, 'kharon-sniff', array($remote, 'ssh'), array(), array('integrate' => TRUE));
@@ -140,11 +148,29 @@ function drush_kharon_register($name, $remote, $subsite = NULL) {
     return FALSE;
   }
   $creds = $res['object'];
-  drush_print_r($res['object']);
 
   // And lets just check that is uses mysql.
   if (!in_array($creds['driver'], array('mysql', 'mysqli'))) {
     drush_set_error('UNSUPPORTED_DB', dt('Only mysql is currently supported.'));
+  }
+
+  // Everything seems to check out, let us try to save the new site.
+  $dir = $server['path'] . '/' . $name;
+  if (@mkdir($dir)) {
+    $config = array(
+      'remote' => $remote,
+      'subsite' => $subsite,
+    );
+    if (!file_put_contents($dir . '/config', serialize($config))) {
+      rmdir($dir);
+      return drush_set_error('CANNOT_WRITE_CONFIG', dt('Error creating config file. Aborting.'));
+    }
+  }
+  elseif (file_exists($dir)) {
+    return drush_set_error('ALREADY_EXISTS', dt('"@name" already exists.', array('@name' => $name)));
+  }
+  else {
+    return drush_set_error('CANNOT_MAKE_DIR', dt('Cannot make a "@name" directory in the server dir. Please check permissions.', array('@name' => $name)));
   }
 }
 
@@ -327,4 +353,42 @@ function _kharon_sniff_creds($settings) {
   }
 
   return $creds;
+}
+
+/**
+ * Validate server settings.
+ */
+function _kharon_validate_server() {
+  $server = drush_get_option('kharon', NULL);
+  if (!$server) {
+    return drush_set_error('SERVER_ERROR', dt('Server not configured.'));
+  }
+
+  // Support a string notation.
+  if (is_string($server)) {
+    $string_server = $server;
+    $server = array('mysql' => array());
+    list(
+      $server['path'],
+      $server['mysql']['host'],
+      $server['mysql']['user'],
+      $server['mysql']['pass'],
+      $server['mysql']['prefix']
+    ) = explode(':', $string_server);
+  }
+
+  if (empty($server['path']) || !file_exists($server['path'])) {
+    return drush_set_error('SERVER_ERROR', dt('Invalid server path.'));
+  }
+
+  if (empty($server['mysql']['host']) || empty($server['mysql']['user']) || empty($server['mysql']['pass'])) {
+    return drush_set_error('SERVER_ERROR', dt('Missing MySQL setup.'));
+  }
+
+  // Make sure that prefix is set.
+  if (empty($server['mysql']['prefix'])) {
+    $server['mysql']['prefix'] = '';
+  }
+
+  return $server;
 }
