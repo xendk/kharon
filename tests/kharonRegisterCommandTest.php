@@ -6,7 +6,7 @@
  */
 include_once 'Kharon_CommandTestCase.php';
 
-class kharonRegisterCase extends Kharon_CommandTestCase {
+class KharonRegisterCommandCase extends Kharon_CommandTestCase {
   public function setUp() {
     $this->setUpDrupal(3);
   }
