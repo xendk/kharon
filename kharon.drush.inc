@@ -5,6 +5,8 @@
  * Kharon, a drush command for getting site data.
  */
 
+include_once dirname(__FILE__) . '/kharon.mysql.inc';
+
 /**
  * Implements hook_drush_command().
  */
@@ -17,6 +19,16 @@ function kharon_drush_command() {
   $items['kharon-register'] = array(
     'aliases' => array('kr'),
     'description' => 'Register a site.',
+    'arguments' => array(
+      'name' => 'Name of the site.',
+    ),
+    'options' => $common_options,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
+  );
+
+  $items['kharon-fetch'] = array(
+    'aliases' => array('kf'),
+    'description' => 'Fetch database and files from a site.',
     'arguments' => array(
       'name' => 'Name of the site.',
     ),
@@ -173,6 +185,98 @@ function drush_kharon_register($name, $remote, $subsite = NULL) {
 }
 
 /**
+ * Validation for the fetch command.
+ */
+function drush_kharon_fetch_validate($name = NULL) {
+  if (empty($name)) {
+    return drush_set_error('BAD_ARGUMENTS', dt('You need to provide a site to fetch.'));
+  }
+
+  if (!_kharon_is_client()) {
+    // We're the end of the line, validate some more args.
+    if (!($server = _kharon_validate_server())) {
+      return $server;
+    }
+
+    if (!file_exists($server['path'] . '/' . $name . '/config')) {
+      return drush_set_error('DONT_EXISTS', dt('No such site.'));
+    }
+  }
+}
+
+/**
+ * Command callback for the kharon-fetch command.
+ *
+ * Fetches database and files into local dir.
+ */
+function drush_kharon_fetch($name) {
+  if (_kharon_is_client()) {
+    return _kharon_forward_to_server('kharon-fetch', func_get_args(), array());
+  }
+
+  $server_settings = drush_get_option('kharon-settings', NULL);
+  $site_path = $server_settings['path'] . '/' . $name;
+  $config = _kharon_load_site_config($site_path . '/config');
+  if (!$config) {
+    return FALSE;
+  }
+
+  $args = array($config['remote'], 'db', $config['subsite']);
+  $res = drush_invoke_process($alias, 'kharon-sniff', $args, array(), array('integrate' => TRUE, 'output' => FALSE));
+  if ($res['error_status'] != 0) {
+    drush_print();
+    drush_print(dt("Error fetching database credentials."));
+    return FALSE;
+  }
+
+  $creds = $res['object'];
+
+  // Locking could be sensible, but currently it's of marginal value.
+  // $fp = fopen($site_path . '/status', "r");
+  // if (flock($fp, LOCK_EX | LOCK_NB)) {
+  //   flock($fp, LOCK_UN);
+  // }
+  // else {
+  //   drush_set_error('CANNOT_LOCK', dt('Could not obtain site lock. Is there another fetch running?'));
+  // }
+  $dump_name = (string) time();
+  $tmp_name = $dump_name . '.' . getmypid();
+
+  if (!mkdir($site_path . '/' . $tmp_name)) {
+    return drush_set_error('FETCH_ERROR', dt('Could not create dump dir.'));
+  }
+
+  $tmp_file = $site_path . '/' . $tmp_name . '/tmp.sql';
+  // Dump remote database into a temporary SQL file.
+  drush_log(dt('Dumping database from site.'), 'status');
+  if (!_kharon_dump_db($tmp_file, $creds, $config)) {
+    return FALSE;
+  }
+
+  // To improve readability later on.
+  $mysql = $server_settings['mysql'];
+  $mysql['driver'] = 'mysql';
+  $db_name = $mysql['prefix'] . $name . '_' . getmypid();
+  $db = NULL;
+
+  try {
+    $db = kharon_get_tmp_db($mysql, $name);
+    $db->import($tmp_file);
+    // Remove temporary dump file.
+    unlink($tmp_file);
+    $db->dump($site_path . '/' . $tmp_name . '/database.sql');
+    $db->cleanup();
+  }
+  catch (PDOException $e) {
+    unlink($site_path . '/' . $tmp_name);
+    return drush_set_error('DB_ERROR', dt('Database error: @message', array('@message' => $e->getMessage())));
+  }
+
+  // Move new dump into place.
+  rename($site_path . '/' . $tmp_name, $site_path . '/' . $dump_name);
+}
+
+/**
  * Validation for the sniff command.
  */
 function drush_kharon_sniff_validate($where = NULL, $what = NULL, $arg = NULL) {
@@ -254,7 +358,6 @@ function drush_kharon_sniff($where, $what, $arg = NULL) {
 
       if (drush_shell_exec($cat_cmd)) {
         if ($creds = _kharon_sniff_creds(drush_shell_exec_output())) {
-          drush_print_r($creds);
           return $creds;
         }
         else {
@@ -268,6 +371,17 @@ function drush_kharon_sniff($where, $what, $arg = NULL) {
 
     default:
       drush_set_error('NOT_IMPLEMENTED', dt('"@what" not implemented.', array('@what' => $what)));
+  }
+}
+
+function kharon_get_tmp_db($db_settings, $name) {
+  // Only MySQL currenly supported, but we might add support for more in the
+  // future.
+  if (in_array($db_settings['driver'], array('mysql', 'mysqli'))) {
+    return new MySQLTmpDb($db_settings, $name);
+  }
+  else {
+    return drush_set_error('MYSQL_ERROR', dt('Database "@driver" not supported.', array('@driver' => $db_settings['driver'])));
   }
 }
 
@@ -379,11 +493,14 @@ function _kharon_validate_server() {
     ) = $parts;
   }
 
-  if (empty($server['path']) || !file_exists($server['path'])) {
+  if (empty($server['path'])) {
     return drush_set_error('SERVER_ERROR', dt('Invalid server path.'));
   }
+  if (!file_exists($server['path'])) {
+    return drush_set_error('SERVER_ERROR', dt('Server path does not exist.'));
+  }
 
-  if (empty($server['mysql']['host']) || empty($server['mysql']['user']) || empty($server['mysql']['pass'])) {
+  if (empty($server['mysql']['host']) || empty($server['mysql']['user'])) {
     return drush_set_error('SERVER_ERROR', dt('Missing MySQL setup.'));
   }
 
@@ -392,6 +509,12 @@ function _kharon_validate_server() {
     $server['mysql']['prefix'] = '';
   }
 
+  // And password.
+  if (empty($server['mysql']['pass'])) {
+    $server['mysql']['pass'] = '';
+  }
+
+  drush_set_option('kharon-settings', $server);
   return $server;
 }
 
@@ -420,5 +543,49 @@ function _kharon_forward_to_server($command, $args, $options) {
   }
   else {
     return drush_set_error('BAD_SERVER', dt('Invalid or missing server setup.'));
+  }
+}
+
+/**
+ * Loads and validates a config file.
+ */
+function _kharon_load_site_config($file) {
+  $config = unserialize(file_get_contents($file));
+  if (empty($config['remote']) || empty($config['subsite'])) {
+    return drush_set_error('BAD_CONFIG', dt('Config file mangled.'));
+  }
+
+  return $config;
+}
+
+function _kharon_dump_db($outfile, $creds, $config) {
+  $dump_command = kharon_mysqldump_comamnd($creds['hostname'], $creds['username'], $creds['password'], $creds['database']);
+  // Add --ignore-table when we support exclusions.
+  $remote = _kharon_parse_remote($config['remote']);
+
+  if (!$remote['is_local']) {
+    drush_print(_kharon_ssh_command($remote, $dump_command));
+    // --remove-source-files
+  }
+  else {
+    $dump_command .= ' --result-file ' . $outfile;
+    if (drush_shell_exec($dump_command)) {
+      return TRUE;
+    }
+    else {
+      return drush_set_error('DUMP_ERROR', dt('Error dumping database.'));
+    }
+  }
+}
+
+function _kharon_db_drop($db, $db_name) {
+  try {
+    if ($db->query('DROP DATABASE ' . $db_name)) {
+      return $db;
+    }
+    return drush_set_error('PDO_ERROR', dt('Could not create temporary database, an unspecified error happened.'));
+  }
+  catch (PDOException $e) {
+    return drush_set_error('PDO_ERROR', dt('Caught PDO Exception trying to drop temporary database: @message', array('@message' => $e->getMessage())));
   }
 }
