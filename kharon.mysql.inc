@@ -36,6 +36,9 @@ class MySQLTmpDb {
     }
   }
 
+  /**
+   * Get the name of the database.
+   */
   public function name() {
     return $this->database;
   }
@@ -65,6 +68,9 @@ class MySQLTmpDb {
     }
   }
 
+  /**
+   * Returns creds as string of arguments for the mysql command.
+   */
   protected function my_creds() {
     return kharon_mysql_creds($this->host, $this->user, $this->pass);
   }
@@ -80,10 +86,16 @@ class MySQLTmpDb {
   }
 }
 
+/**
+ * Construct a mysqldump command.
+ */
 function kharon_mysqldump_comamnd($host, $user, $pass, $database) {
   return 'mysqldump 2>&1 --no-autocommit --single-transaction --opt -Q ' . kharon_mysql_creds($host, $user, $pass) . ' ' . $database;
 }
 
+/**
+ * Returns given creds as string of arguments for the mysql command.
+ */
 function kharon_mysql_creds($host = NULL, $user = NULL, $pass = NULL) {
   $creds = array();
   if ($host) {
