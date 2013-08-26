@@ -58,7 +58,7 @@ class MySQLTmpDb {
    * Import an SQL file into the temporary database.
    */
   public function import($file) {
-    $command = 'mysql 2>&1 ' . $this->my_creds() . ' ' . $this->database. ' --silent <' . drush_escapeshellarg($file);
+    $command = 'mysql 2>&1 ' . $this->my_creds() . ' ' . $this->database . ' --silent <' . drush_escapeshellarg($file);
 
     if (!drush_shell_exec($command)) {
       throw new PDOException(implode("\n", drush_shell_exec_output()));
@@ -73,7 +73,6 @@ class MySQLTmpDb {
    * Dump the database into a SQL file.
    */
   public function dump($file) {
-    // $command = 'mysqldump 2>&1 --no-autocommit --single-transaction --opt -Q ' . $this->my_creds() . ' ' . $this->database . ' >' . drush_escapeshellarg($file);
     $command = kharon_mysqldump_comamnd($this->host, $this->user, $this->pass, $this->database) . ' >' . drush_escapeshellarg($file);;
     if (!drush_shell_exec($command)) {
       throw new PDOException(implode("\n", drush_shell_exec_output()));
