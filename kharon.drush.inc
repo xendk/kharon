@@ -21,6 +21,15 @@ function kharon_drush_command() {
     'kharon' => 'Local server setup.',
   );
 
+  $items['kharon-init'] = array(
+    'aliases' => array('ki'),
+    'description' => 'Initialize server directory.',
+    'arguments' => array(
+      'directory' => 'The directory to initialize.',
+    ),
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
+  );
+
   $items['kharon-register'] = array(
     'aliases' => array('kr'),
     'description' => 'Register a site.',
@@ -54,6 +63,37 @@ function kharon_drush_command() {
   );
 
   return $items;
+}
+
+/**
+ * Valiation for the init command.
+ */
+function drush_kharon_init_validate($dir = NULL) {
+  if (empty($dir)) {
+    return drush_set_error('BAD_ARGUMENTS', dt('Need a directory to initialize.'));
+  }
+  if (file_exists($dir)) {
+    return drush_set_error('BAD_ARGUMENTS', dt('Directory already exists.'));
+  }
+}
+
+/**
+ * Init command callback.
+ *
+ * Makes the server dir and generates a SSH key.
+ */
+function drush_kharon_init($dir) {
+  if (!mkdir($dir)) {
+    return drush_set_error('CANNOT_MAKE_DIR', dt('Cannot make directory.'));
+  }
+  // @todo look into -O clear for clearing permissions. Looks like we can
+  //   enforce that an agent forwards the key.
+  if (!drush_shell_exec('ssh-keygen -N "" -qf %s', $dir . '/key')) {
+    drush_register_file_for_deletion($dir);
+    $output = implode("\n", drush_shell_exec_output());
+    return drush_set_error('SSH_KEYGEN_ERROR', dt('Error generating ssh key: @error', array('@error' => $output)));
+  }
+  drush_log(dt('Server directory created.'), 'ok');
 }
 
 /**
