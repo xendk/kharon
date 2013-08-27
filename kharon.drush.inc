@@ -27,6 +27,12 @@ function kharon_drush_command() {
     'arguments' => array(
       'directory' => 'The directory to initialize.',
     ),
+    'options' => array(
+      'mysql-host' => 'Hostname of MySQL server.',
+      'mysql-user' => 'MySQL user name.',
+      'mysql-pass' => 'MySQL password.',
+      'mysql-prefix' => 'Prefix for temporary databases.',
+    ),
     'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
@@ -93,6 +99,69 @@ function drush_kharon_init($dir) {
     $output = implode("\n", drush_shell_exec_output());
     return drush_set_error('SSH_KEYGEN_ERROR', dt('Error generating ssh key: @error', array('@error' => $output)));
   }
+
+  $mysql_host = drush_get_option('mysql-host', NULL);
+  if (!$mysql_host) {
+    $mysql_host = drush_prompt('MySQL host', NULL, TRUE);
+  }
+  if (!$mysql_host) {
+    drush_register_file_for_deletion($dir);
+    return drush_user_abort();
+  }
+
+  $mysql_user = drush_get_option('mysql-user', NULL);
+  if (!$mysql_user) {
+    $mysql_user = drush_prompt('MySQL user', NULL, TRUE);
+  }
+  if (!$mysql_user) {
+    drush_register_file_for_deletion($dir);
+    return drush_user_abort();
+  }
+
+  $mysql_pass = drush_get_option('mysql-pass', NULL);
+  if (is_null($mysql_pass)) {
+    $mysql_pass = drush_prompt('MySQL pass', '', FALSE, TRUE);
+  }
+
+  $mysql_prefix = drush_get_option('mysql-prefix', NULL);
+  if (is_null($mysql_prefix)) {
+    $mysql_prefix = drush_prompt('MySQL database prefix', '', FALSE, TRUE);
+  }
+
+  // Let's check that we can use the creds.
+
+  try {
+    $pdo = new PDO('mysql:host=' . $mysql_host . ';charset=utf8', $mysql_user, $mysql_pass);
+  }
+  catch (PDOException $e) {
+    drush_register_file_for_deletion($dir);
+    return drush_set_error('MYSQL_ERROR', dt('Could not connect to database, please check credentials and grants.'));
+  }
+
+  if (!$pdo->query('CREATE DATABASE ' . $mysql_prefix . '_init_test')) {
+    drush_register_file_for_deletion($dir);
+    return drush_set_error('MYSQL_ERROR', dt('Could not create a test databse, please check credentials and grants.'));
+  }
+
+  if (!$pdo->query('DROP DATABASE ' . $mysql_prefix . '_init_test')) {
+    drush_register_file_for_deletion($dir);
+    return drush_set_error('MYSQL_ERROR', dt('Could not drop test databse, please check credentials and grants.'));
+  }
+
+  // Checks out, let's save.
+  $config = array(
+    'mysql' => array(
+      'host' => $mysql_host,
+      'user' => $mysql_user,
+      'pass' => $mysql_pass,
+      'prefix' => $mysql_prefix,
+    ),
+  );
+
+  if (!file_put_contents($dir . '/config', serialize($config))) {
+    return drush_set_error('ERROR_SAVING_CONFIG', dt('Error saving config file.'));
+  }
+
   drush_log(dt('Server directory created.'), 'ok');
 }
 
