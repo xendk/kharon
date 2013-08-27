@@ -240,7 +240,7 @@ function drush_kharon_fetch_validate($name = NULL) {
   if (!_kharon_is_client()) {
     // We're the end of the line, validate some more args.
     if (!($server = _kharon_validate_server())) {
-      return $server;
+      return FALSE;
     }
 
     if (!file_exists($server['path'] . '/' . $name . '/config')) {
