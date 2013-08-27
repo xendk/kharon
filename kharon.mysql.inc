@@ -37,6 +37,13 @@ class MySQLTmpDb {
   }
 
   /**
+   * Return PDO object for this database.
+   */
+  public function pdo() {
+    return $this->db;
+  }
+
+  /**
    * Get the name of the database.
    */
   public function name() {

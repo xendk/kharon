@@ -8,6 +8,11 @@
 include_once dirname(__FILE__) . '/kharon.mysql.inc';
 
 /**
+ * Our own exception class.
+ */
+class KharonException extends Exception {}
+
+/**
  * Implements hook_drush_command().
  */
 function kharon_drush_command() {
@@ -241,12 +246,15 @@ function drush_kharon_fetch($name) {
   // }
   $dump_name = (string) time();
   $tmp_name = $dump_name . '.' . getmypid();
+  $tmp_dir = $site_path . '/' . $tmp_name;
 
-  if (!mkdir($site_path . '/' . $tmp_name)) {
+  if (!mkdir($tmp_dir)) {
     return drush_set_error('FETCH_ERROR', dt('Could not create dump dir.'));
   }
+  // Let Drush clean up the tmp dir if we exit prematurely.
+  drush_register_file_for_deletion($tmp_dir);
 
-  $tmp_file = $site_path . '/' . $tmp_name . '/tmp.sql';
+  $tmp_file = $tmp_dir . '/tmp.sql';
   // Dump remote database into a temporary SQL file.
   drush_log(dt('Dumping database from site.'), 'status');
   if (!_kharon_dump_db($tmp_file, $creds, $config)) {
@@ -264,16 +272,36 @@ function drush_kharon_fetch($name) {
     $db->import($tmp_file);
     // Remove temporary dump file.
     unlink($tmp_file);
-    $db->dump($site_path . '/' . $tmp_name . '/database.sql');
+
+    // Figure out the files directories from the database and sync the files.
+    $file_dirs = _kharon_file_dirs($config, $creds, $db);
+    $remote = _kharon_parse_remote($config['remote']);
+    if (!$remote['is_local']) {
+      $prefix = $remote['user'] . '@' . $remote['host'] . ':';
+    }
+    // @todo find previous dumps for hardlinking files.
+    foreach ($file_dirs as $name => $path) {
+      if (!drush_shell_exec('rsync -av --link-dest=%s %s %s', '/tmp/kharon/ida/1377548792/public', $prefix . ($path[0] == '/' ? '' : $remote['path'] . '/') . $path . '/', $tmp_dir . '/' . $name)) {
+        return drush_set_error('RSYNC_ERROR', dt('Error copying files.'));
+      }
+    }
+    // Clean up file paths in the db.
+    // Run scripts.
+
+    $db->dump($tmp_dir . '/database.sql');
     $db->cleanup();
   }
   catch (PDOException $e) {
-    unlink($site_path . '/' . $tmp_name);
+    // @todo $db->cleanup()
     return drush_set_error('DB_ERROR', dt('Database error: @message', array('@message' => $e->getMessage())));
+  }
+  catch (KharonException $e) {
+    // @todo $db->cleanup()
+    return drush_set_error('KHARON_ERROR', $e->getMessage());
   }
 
   // Move new dump into place.
-  rename($site_path . '/' . $tmp_name, $site_path . '/' . $dump_name);
+  rename($tmp_dir, $site_path . '/' . $dump_name);
 }
 
 /**
@@ -588,4 +616,42 @@ function _kharon_db_drop($db, $db_name) {
   catch (PDOException $e) {
     return drush_set_error('PDO_ERROR', dt('Caught PDO Exception trying to drop temporary database: @message', array('@message' => $e->getMessage())));
   }
+}
+
+function _kharon_file_dirs($config, $creds, $tmp_db) {
+  drush_print_r($config);
+  switch ($creds['core']) {
+    case '6.x':
+      $paths = array(
+        'public' => 'file_directory_path',
+      );
+      break;
+
+    case '7.x':
+      $paths = array(
+        'private' => 'file_private_path',
+        'public' => 'file_public_path', // conf_path() . '/files'
+      );
+      break;
+
+    default:
+      throw new KharonException(dt('Unsupported core version.'));
+  }
+
+  $result = array();
+  foreach ($paths as $name => $var) {
+    drush_print($var);
+    $res = $tmp_db
+      ->pdo()
+      ->query('SELECT value FROM variable WHERE name = "' . $var . '"');
+    if ($res && ($val = $res->fetchColumn())) {
+      drush_print($name);
+      $result[$name] = $val;
+    }
+    elseif ($name == 'public') {
+      // Default location if not configured.
+      $result[$name] = 'sites/' . $config['subsite'] . '/files';
+    }
+  }
+  return $result;
 }
