@@ -206,7 +206,7 @@ function drush_kharon_register($name, $remote, $subsite = NULL) {
   }
 
   // First check that we can connect to the site.
-  $res = drush_invoke_process($alias, 'kharon-sniff', array($remote, 'ssh'), array(), array('integrate' => TRUE));
+  $res = drush_invoke_process('@none', 'kharon-sniff', array($remote, 'ssh'), array(), array('integrate' => TRUE));
   if ($res['error_status'] != 0) {
     // In the case of authentication error, print some more help.
     if (!empty($res['error_log']['SSH_KEY_ERROR'])) {
@@ -220,7 +220,7 @@ function drush_kharon_register($name, $remote, $subsite = NULL) {
   }
 
   // Check sites.
-  $res = drush_invoke_process($alias, 'kharon-sniff', array($remote, 'sites'), array(), array('integrate' => TRUE, 'output' => FALSE));
+  $res = drush_invoke_process('@none', 'kharon-sniff', array($remote, 'sites'), array(), array('integrate' => TRUE, 'output' => FALSE));
   if ($res['error_status'] != 0) {
     drush_print();
     drush_print(dt('Could not get list of sub-sites, sure it is the right path?'));
@@ -255,7 +255,7 @@ function drush_kharon_register($name, $remote, $subsite = NULL) {
 
   // Now we have all the information we need for now. The final check is to see
   // if we can get the database credentials.
-  $res = drush_invoke_process($alias, 'kharon-sniff', array($remote, 'db', $subsite), array(), array('integrate' => TRUE, 'output' => FALSE));
+  $res = drush_invoke_process('none', 'kharon-sniff', array($remote, 'db', $subsite), array(), array('integrate' => TRUE, 'output' => FALSE));
   if ($res['error_status'] != 0) {
     if (!empty($res['error_log']['DB_SNIFF_READ_ERROR'])) {
       drush_print();
@@ -336,7 +336,7 @@ function drush_kharon_fetch($name) {
   }
 
   $args = array($config['remote'], 'db', $config['subsite']);
-  $res = drush_invoke_process($alias, 'kharon-sniff', $args, array(), array('integrate' => TRUE, 'output' => FALSE));
+  $res = drush_invoke_process('none', 'kharon-sniff', $args, array(), array('integrate' => TRUE, 'output' => FALSE));
   if ($res['error_status'] != 0) {
     drush_print();
     drush_print(dt("Error fetching database credentials."));
