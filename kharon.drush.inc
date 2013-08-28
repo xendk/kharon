@@ -613,48 +613,45 @@ function _kharon_sniff_creds($settings) {
  * Validate server settings.
  */
 function _kharon_validate_server() {
-  $server = drush_get_option('kharon', NULL);
-  if (!$server) {
+  $server_path = drush_get_option('kharon', NULL);
+  if (!$server_path) {
     return drush_set_error('SERVER_ERROR', dt('Server not configured.'));
   }
 
-  // Support a string notation.
-  if (is_string($server)) {
-    $string_server = $server;
-    $server = array('mysql' => array());
-    $parts = explode(':', $string_server);
-    if (count($parts) != 5 && count($parts) != 4) {
-      return drush_set_error('SERVER_ERROR', dt('Invalid server string.'));
-    }
-    list(
-      $server['path'],
-      $server['mysql']['host'],
-      $server['mysql']['user'],
-      $server['mysql']['pass'],
-      $server['mysql']['prefix']
-    ) = $parts;
-  }
-
-  if (empty($server['path'])) {
+  if (empty($server_path)) {
     return drush_set_error('SERVER_ERROR', dt('Invalid server path.'));
   }
-  if (!file_exists($server['path'])) {
+  if (!file_exists($server_path)) {
     return drush_set_error('SERVER_ERROR', dt('Server path does not exist.'));
   }
 
-  if (empty($server['mysql']['host']) || empty($server['mysql']['user'])) {
-    return drush_set_error('SERVER_ERROR', dt('Missing MySQL setup.'));
+  if (!file_exists($server_path . '/config')) {
+    return drush_set_error('SERVER_ERROR', dt('No config file in server directory.'));
+  }
+  $server = unserialize(file_get_contents($server_path . '/config'));
+  if (empty($server)) {
+    return drush_set_error('SERVER_ERROR', dt('Could not load configuration from the config file.'));
   }
 
-  // Make sure that prefix is set.
-  if (empty($server['mysql']['prefix'])) {
-    $server['mysql']['prefix'] = '';
-  }
+  if (isset($server['mysql'])) {
+    if (empty($server['mysql']['host']) || empty($server['mysql']['user'])) {
+      return drush_set_error('SERVER_ERROR', dt('Missing MySQL setup.'));
+    }
 
-  // And password.
-  if (empty($server['mysql']['pass'])) {
-    $server['mysql']['pass'] = '';
+    // Make sure that prefix is set.
+    if (empty($server['mysql']['prefix'])) {
+      $server['mysql']['prefix'] = '';
+    }
+
+    // And password.
+    if (empty($server['mysql']['pass'])) {
+      $server['mysql']['pass'] = '';
+    }
   }
+  else {
+    return drush_set_error('SERVER_ERROR', dt('No MySQL configuration in config file.'));
+  }
+  $server['path'] = $server_path;
 
   drush_set_option('kharon-settings', $server);
   return $server;
