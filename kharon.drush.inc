@@ -385,12 +385,23 @@ function drush_kharon_fetch($name) {
     // Figure out the files directories from the database and sync the files.
     $file_dirs = _kharon_file_dirs($config, $creds, $db);
     $remote = _kharon_parse_remote($config['remote']);
+    $prefix = '';
     if (!$remote['is_local']) {
       $prefix = $remote['user'] . '@' . $remote['host'] . ':';
     }
-    // @todo find previous dumps for hardlinking files.
+    // Find previous dumps for hardlinking files.
+    $previous_dumps = _kharon_find_dumps($site_path);
     foreach ($file_dirs as $name => $path) {
-      if (!drush_shell_exec('rsync -av --link-dest=%s %s %s', '/tmp/kharon/ida/1377548792/public', $prefix . ($path[0] == '/' ? '' : $remote['path'] . '/') . $path . '/', $tmp_dir . '/' . $name)) {
+      drush_log(dt('Syncing @type files.', array('@type' => $name)), 'status');
+
+      $link_dests = array();
+      foreach ($previous_dumps as $filename => $info) {
+        if (file_exists($filename . '/' . $name)) {
+          drush_log(dt('Hardlinking with @dir', array('@dir' => $filename . '/' . $name)), 'debug');
+          $link_dests[] = '--link-dest=' . drush_escapeshellarg($filename . '/' . $name);
+        }
+      }
+      if (!drush_shell_exec('rsync -a ' . implode(' ', $link_dests) . ' %s %s', $prefix . ($path[0] == '/' ? '' : $remote['path'] . '/') . $path . '/', $tmp_dir . '/' . $name)) {
         return drush_set_error('RSYNC_ERROR', dt('Error copying files.'));
       }
     }
@@ -409,6 +420,8 @@ function drush_kharon_fetch($name) {
     return drush_set_error('KHARON_ERROR', $e->getMessage());
   }
 
+  // @todo Add some information to this file.
+  touch($tmp_dir . '/info');
   // Move new dump into place.
   rename($tmp_dir, $site_path . '/' . $dump_name);
 }
@@ -763,4 +776,15 @@ function _kharon_file_dirs($config, $creds, $tmp_db) {
     }
   }
   return $result;
+}
+
+function _kharon_find_dumps($dir) {
+  $candidates = drush_scan_directory($dir, '/.*/', array('.', '..', 'CVS'), 0, FALSE);
+  $files = array();
+  foreach ($candidates as $filename => $file) {
+    if (file_exists($filename . '/info')) {
+      $files[$filename] = $filename;
+    }
+  }
+  return $files;
 }
