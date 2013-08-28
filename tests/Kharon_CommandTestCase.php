@@ -4,20 +4,53 @@
  * @file
  * Base test case class for Kharon tests.
  */
+
 abstract class Kharon_CommandTestCase extends Drush_CommandTestCase {
   public static function setUpBeforeClass() {
     parent::setUpBeforeClass();
     // Copy in the drush command, so the sandbox can find it.
     $cmd = sprintf('cp -r %s %s', escapeshellarg(dirname(dirname(__FILE__))), escapeshellarg(getenv('HOME') . '/.drush/kharon'));
     exec($cmd);
-    mkdir(UNISH_SANDBOX . '/kharon');
   }
 
-  function setUp() {
+  public function setUp() {
     $this->server_options = array(
       'kharon' => array(
         'path' => UNISH_SANDBOX . '/kharon',
       ),
+    );
+  }
+
+  /**
+   * Parse out UNISH_DB_URL to an array we can use.
+   */
+  public function parseUnishDbUrl() {
+    if (!preg_match('{mysql://(?P<user>[^:]+):(?P<pass>[^@]*)@(?P<host>.*)}', UNISH_DB_URL, $db_settings)) {
+      $this->fail('Could not parse db credentials from UNISH_DB_URL.');
+    }
+    $db_settings['prefix'] = 'unish_kharon_test_';
+    return $db_settings;
+  }
+  /**
+   * Initialize a kharon directory and return the command options to use it.
+   */
+  public function kharonInit() {
+    static $num = 1;
+    $db_settings = $this->parseUnishDbUrl();
+
+    $kharon_dir = UNISH_SANDBOX . '/kharon' . $num++;
+    $options = array(
+      'mysql-host' => $db_settings['host'],
+      'mysql-user' => $db_settings['user'],
+      'mysql-pass' => $db_settings['pass'],
+      'mysql-prefix' => $db_settings['prefix'],
+    );
+
+    // Run the init command.
+    $this->drush('kharon-init', array($kharon_dir), $options);
+
+    return array(
+      'kharon' => $kharon_dir,
     );
   }
 
@@ -27,7 +60,7 @@ abstract class Kharon_CommandTestCase extends Drush_CommandTestCase {
    * Ensures that the settings files of the created sites contains valid db
    * settings, even when not installing the sites.
    */
-  function setUpDrupal($num_sites = 1, $install = FALSE, $version_string = UNISH_DRUPAL_MAJOR_VERSION, $profile = NULL) {
+  public function setUpDrupal($num_sites = 1, $install = FALSE, $version_string = UNISH_DRUPAL_MAJOR_VERSION, $profile = NULL) {
     parent::setUpDrupal($num_sites, $install, $version_string, $profile);
     if (!$install) {
       $i = 0;

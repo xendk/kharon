@@ -11,10 +11,7 @@ class KharonInitCommandCase extends Kharon_CommandTestCase {
    * Test that init works.
    */
   function testBasic() {
-    if (!preg_match('{mysql://(?P<user>[^:]+):(?P<pass>[^@]*)@(?P<host>.*)}', UNISH_DB_URL, $db_settings)) {
-      $this->fail('Could not parse db credentials from UNISH_DB_URL.');
-    }
-    $db_settings['prefix'] = 'unish_kharon_test_';
+    $db_settings = $this->parseUnishDbUrl();
 
     $kharon_dir = UNISH_SANDBOX . '/kharon';
     $options = array(
