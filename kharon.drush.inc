@@ -730,7 +730,6 @@ function _kharon_db_drop($db, $db_name) {
 }
 
 function _kharon_file_dirs($config, $creds, $tmp_db) {
-  drush_print_r($config);
   switch ($creds['core']) {
     case '6.x':
       $paths = array(
@@ -751,7 +750,6 @@ function _kharon_file_dirs($config, $creds, $tmp_db) {
 
   $result = array();
   foreach ($paths as $name => $var) {
-    drush_print($var);
     $res = $tmp_db
       ->pdo()
       ->query('SELECT value FROM variable WHERE name = "' . $var . '"');
