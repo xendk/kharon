@@ -495,6 +495,11 @@ function drush_kharon_sniff($where, $what, $arg = NULL) {
 
       if (drush_shell_exec($cat_cmd)) {
         if ($creds = _kharon_sniff_creds(drush_shell_exec_output())) {
+          $rows = array();
+          foreach ($creds as $name => $val) {
+            $rows[] = array($name, ':', $val);
+          }
+          drush_print_table($rows);
           return $creds;
         }
         else {

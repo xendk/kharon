@@ -41,12 +41,12 @@ class KharonSniffCommandCase extends Kharon_CommandTestCase {
       // We'll grab STDERR too, that'll make debugging easier if failing.
       $this->drush('kharon-sniff 2>&1', array($this->webroot(), 'db', $env), array());
       $output = $this->getOutput();
-      $this->assertRegExp('{\[driver\] => mysql\n}', $output);
-      $this->assertRegExp('{\[core\] => ' . $def['core'] . '\n}', $output);
-      $this->assertRegExp('{\[username\] => ' . $env . '_user\n}', $output);
-      $this->assertRegExp('{\[hostname\] => ' . $env . '_host\n}', $output);
-      $this->assertRegExp('{\[database\] => ' . $env . '_db\n}', $output);
-      $this->assertRegExp('{\[password\] => ' . $env . '_pass\n}', $output);
+      $this->assertRegExp('{driver\s+:\s+mysql\n}', $output);
+      $this->assertRegExp('{core\s+:\s+' . $def['core'] . '\n}', $output);
+      $this->assertRegExp('{username\s+:\s+' . $env . '_user\n}', $output);
+      $this->assertRegExp('{hostname\s+:\s+' . $env . '_host\n}', $output);
+      $this->assertRegExp('{database\s+:\s+' . $env . '_db\n}', $output);
+      $this->assertRegExp('{password\s+:\s+' . $env . '_pass\n}', $output);
     }
   }
 }
