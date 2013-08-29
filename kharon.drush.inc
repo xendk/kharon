@@ -767,7 +767,6 @@ function _kharon_file_dirs($config, $creds, $tmp_db) {
       ->pdo()
       ->query('SELECT value FROM variable WHERE name = "' . $var . '"');
     if ($res && ($val = $res->fetchColumn())) {
-      drush_print($name);
       $result[$name] = $val;
     }
     elseif ($name == 'public') {
