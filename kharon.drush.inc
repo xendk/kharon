@@ -129,7 +129,6 @@ function drush_kharon_init($dir) {
   }
 
   // Let's check that we can use the creds.
-
   try {
     $pdo = new PDO('mysql:host=' . $mysql_host . ';charset=utf8', $mysql_user, $mysql_pass);
   }
@@ -213,7 +212,7 @@ function drush_kharon_register($name, $remote, $subsite = NULL) {
       drush_print();
       drush_print(dt("You have no obolus..."));
       drush_print();
-      // @todo: print something about how to get the key so the relevant
+      // @todo: print something about how to get the key to the relevant
       //   server.
     }
     return FALSE;
@@ -255,7 +254,8 @@ function drush_kharon_register($name, $remote, $subsite = NULL) {
 
   // Now we have all the information we need for now. The final check is to see
   // if we can get the database credentials.
-  $res = drush_invoke_process('none', 'kharon-sniff', array($remote, 'db', $subsite), array(), array('integrate' => TRUE, 'output' => FALSE));
+  $args = array($remote, 'db', $subsite);
+  $res = drush_invoke_process('none', 'kharon-sniff', $args, array(), array('integrate' => TRUE, 'output' => FALSE));
   if ($res['error_status'] != 0) {
     if (!empty($res['error_log']['DB_SNIFF_READ_ERROR'])) {
       drush_print();
@@ -529,6 +529,9 @@ function drush_kharon_sniff($where, $what, $arg = NULL) {
   }
 }
 
+/**
+ * Get a temporary database object.
+ */
 function kharon_get_tmp_db($db_settings, $name) {
   // Only MySQL currenly supported, but we might add support for more in the
   // future.
@@ -710,6 +713,9 @@ function _kharon_load_site_config($file) {
   return $config;
 }
 
+/**
+ * Dump a (local or remote) site database.
+ */
 function _kharon_dump_db($outfile, $creds, $config) {
   $dump_command = kharon_mysqldump_comamnd($creds['hostname'], $creds['username'], $creds['password'], $creds['database']);
   // Add --ignore-table when we support exclusions.
@@ -730,18 +736,24 @@ function _kharon_dump_db($outfile, $creds, $config) {
   }
 }
 
+/**
+ * Drop a temporary database.
+ */
 function _kharon_db_drop($db, $db_name) {
   try {
     if ($db->query('DROP DATABASE ' . $db_name)) {
       return $db;
     }
-    return drush_set_error('PDO_ERROR', dt('Could not create temporary database, an unspecified error happened.'));
+    return drush_set_error('PDO_ERROR', dt('Could not drop temporary database, an unspecified error happened.'));
   }
   catch (PDOException $e) {
     return drush_set_error('PDO_ERROR', dt('Caught PDO Exception trying to drop temporary database: @message', array('@message' => $e->getMessage())));
   }
 }
 
+/**
+ * Returns the paths of the file directories from a temporary database.
+ */
 function _kharon_file_dirs($config, $creds, $tmp_db) {
   switch ($creds['core']) {
     case '6.x':
@@ -753,7 +765,7 @@ function _kharon_file_dirs($config, $creds, $tmp_db) {
     case '7.x':
       $paths = array(
         'private' => 'file_private_path',
-        'public' => 'file_public_path', // conf_path() . '/files'
+        'public' => 'file_public_path',
       );
       break;
 
@@ -777,6 +789,9 @@ function _kharon_file_dirs($config, $creds, $tmp_db) {
   return $result;
 }
 
+/**
+ * Finds all dumps in a site dir.
+ */
 function _kharon_find_dumps($dir) {
   $candidates = drush_scan_directory($dir, '/.*/', array('.', '..', 'CVS'), 0, FALSE);
   $files = array();
