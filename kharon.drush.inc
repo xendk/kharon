@@ -408,6 +408,9 @@ function drush_kharon_fetch($name) {
     // Run scripts.
 
     $db->dump($tmp_dir . '/database.sql');
+    if (!drush_shell_exec('gzip %s', $tmp_dir . '/database.sql')) {
+      return drush_set_error('GZIP_ERROR', dt('Error compressing SQL dump.'));
+    }
     $db->cleanup();
   }
   catch (PDOException $e) {
@@ -727,7 +730,14 @@ function _kharon_dump_db($outfile, $creds, $config) {
   else {
     $dump_command .= ' --result-file ' . $outfile;
     if (drush_shell_exec($dump_command)) {
-      return TRUE;
+      // Safetycheck file.
+      $last_line = `tail -1 $outfile`;
+      if (preg_match('/Dump completed/', $last_line)) {
+        return TRUE;
+      }
+      else {
+        return drush_set_error('DUMP_ERROR', dt('Error in dump file.'));
+      }
     }
     else {
       return drush_set_error('DUMP_ERROR', dt('Error dumping database.'));
