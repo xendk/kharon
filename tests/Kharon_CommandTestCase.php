@@ -55,8 +55,13 @@ abstract class Kharon_CommandTestCase extends Drush_CommandTestCase {
   }
 
   public function resetDrupal() {
-    unish_file_delete_recursive($this->webroot() . '/sites');
-    $this->sites = array();
+    if (!empty($this->sites)) {
+      foreach ($this->sites as $env => $def) {
+        $this->drush('sql-drop', array(), array('yes' => TRUE), '@' . $env);
+      }
+      unish_file_delete_recursive($this->webroot());
+      $this->sites = array();
+    }
   }
 
   /**
