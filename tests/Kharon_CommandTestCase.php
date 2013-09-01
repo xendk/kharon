@@ -54,11 +54,19 @@ abstract class Kharon_CommandTestCase extends Drush_CommandTestCase {
     );
   }
 
+  public function resetDrupal() {
+    unish_file_delete_recursive($this->webroot() . '/sites');
+    $this->sites = array();
+  }
+
   /**
    * Overrides Drush_CommandTestCase::setUpDrupal().
    *
    * Ensures that the settings files of the created sites contains valid db
    * settings, even when not installing the sites.
+   *
+   * Also adds the core version to the sites array as we fake different core
+   * versions when faking settings.php.
    */
   public function setUpDrupal($num_sites = 1, $install = FALSE, $version_string = UNISH_DRUPAL_MAJOR_VERSION, $profile = NULL) {
     parent::setUpDrupal($num_sites, $install, $version_string, $profile);
@@ -124,6 +132,12 @@ abstract class Kharon_CommandTestCase extends Drush_CommandTestCase {
         $settings_file = $this->webroot() . '/sites/' . $env . '/settings.php';
         file_put_contents($settings_file, $settings);
         $i++;
+      }
+    }
+    else {
+      // Else just add the version string.
+      foreach ($this->sites as $env => $def) {
+        $this->sites[$env]['core'] = $version_string . '.x';
       }
     }
   }

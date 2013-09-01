@@ -22,12 +22,12 @@ class MySQLTmpDb {
     $this->pass = $db_settings['pass'];
     $this->prefix = $db_settings['prefix'];
     $this->name = $name;
-    $this->database = $this->prefix . $name . '_' . getmypid();
+    $this->database = $this->prefix . preg_replace('/[^a-z0-9_]/', '_', $name) . '_' . getmypid();
     try {
       $this->db = new PDO('mysql:host=' . $this->host . ';charset=utf8', $this->user, $this->pass);
       if (!$this->db->query('CREATE DATABASE ' . $this->database)) {
         // Shouldn't happen.
-        throw new PDOException('Unknown error creating database.');
+        throw new PDOException(dt('Unknown error creating database "@database".', array('@database' => $this->database)));
       }
     }
     catch (PDOException $e) {

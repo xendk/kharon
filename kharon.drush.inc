@@ -373,7 +373,6 @@ function drush_kharon_fetch($name) {
   // To improve readability later on.
   $mysql = $server_settings['mysql'];
   $mysql['driver'] = 'mysql';
-  $db_name = $mysql['prefix'] . $name . '_' . getmypid();
   $db = NULL;
 
   try {
