@@ -462,10 +462,9 @@ function drush_kharon_fetch($name) {
 
       $link_dests = array();
       foreach ($previous_dumps as $prev_dump_name => $info) {
-        $dump_path = $site_path . '/' . $prev_dump_name;
-        if (file_exists($dump_path . '/' . $name)) {
-          drush_log(dt('Hardlinking with @dir', array('@dir' => $dump_path . '/' . $name)), 'debug');
-          $link_dests[] = '--link-dest=' . drush_escapeshellarg($dump_path . '/' . $name);
+        if (file_exists($info['path'] . '/' . $name)) {
+          drush_log(dt('Hardlinking with @dir', array('@dir' => $info['path'] . '/' . $name)), 'debug');
+          $link_dests[] = '--link-dest=' . drush_escapeshellarg($info['path'] . '/' . $name);
         }
       }
       if (!drush_shell_exec('rsync -a ' . implode(' ', $link_dests) . ' %s %s', $prefix . ($path[0] == '/' ? '' : $remote['path'] . '/') . $path . '/', $tmp_dir . '/' . $name)) {
@@ -873,7 +872,10 @@ function _kharon_find_sites($dir) {
   $files = array();
   foreach ($candidates as $filename => $file) {
     if (file_exists($filename . '/config')) {
-      $files[$file->basename] = unserialize(file_get_contents($filename . '/config'));
+      $files[$file->basename] = array(
+        'config' => unserialize(file_get_contents($filename . '/config')),
+        'path' => $filename,
+      );
     }
   }
   return $files;
@@ -887,7 +889,10 @@ function _kharon_find_dumps($dir) {
   $files = array();
   foreach ($candidates as $filename => $file) {
     if (file_exists($filename . '/info')) {
-      $files[$file->basename] = unserialize(file_get_contents($filename . '/info'));
+      $files[$file->basename] = array(
+        'info' => unserialize(file_get_contents($filename . '/info')),
+        'path' => $filename,
+      );
     }
   }
   return $files;
