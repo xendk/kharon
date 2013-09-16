@@ -797,19 +797,18 @@ function _kharon_dump_db($outfile, $creds, $config) {
   }
   else {
     $dump_command .= ' --result-file ' . $outfile;
-    if (drush_shell_exec($dump_command)) {
-      // Safetycheck file.
-      $last_line = `tail -1 $outfile`;
-      if (preg_match('/Dump completed/', $last_line)) {
-        return TRUE;
-      }
-      else {
-        return drush_set_error('DUMP_ERROR', dt('Error in dump file.'));
-      }
-    }
-    else {
+    if (!drush_shell_exec($dump_command)) {
       return drush_set_error('DUMP_ERROR', dt('Error dumping database.'));
     }
+  }
+
+  // Safetycheck file.
+  $last_line = `tail -1 $outfile`;
+  if (preg_match('/Dump completed/', $last_line)) {
+    return TRUE;
+  }
+  else {
+    return drush_set_error('DUMP_ERROR', dt('Error in dump file.'));
   }
 }
 
