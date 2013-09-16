@@ -46,6 +46,16 @@ function kharon_drush_command() {
     'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
   );
 
+  $items['kharon-list'] = array(
+    'aliases' => array('kl'),
+    'description' => 'List sites or dumps.',
+    'arguments' => array(
+      'name' => 'List dumps for site.',
+    ),
+    'options' => $common_options,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
+  );
+
   $items['kharon-fetch'] = array(
     'aliases' => array('kf'),
     'description' => 'Fetch database and files from a site.',
@@ -299,6 +309,63 @@ function drush_kharon_register($name, $remote, $subsite = NULL) {
 }
 
 /**
+ * Validation for the list command.
+ */
+function drush_kharon_list_validate($name = NULL) {
+  if (!_kharon_is_client()) {
+    $server = _kharon_validate_server();
+    if (!$server) {
+      // _kharon_validate_server already set the error.
+      return FALSE;
+    }
+
+    if (!empty($name)) {
+      if (!file_exists($server['path'] . '/' . $name . '/config')) {
+        return drush_set_error('DONT_EXISTS', dt('No such site.'));
+      }
+    }
+  }
+}
+
+/**
+ * Command callback for the kharon-list command.
+ *
+ * List sites or dumps in site.
+ */
+function drush_kharon_list($name = NULL) {
+  // Forward upstream, if we're not the server.
+  if (_kharon_is_client()) {
+    return _kharon_forward_to_server('kharon-list', func_get_args(), array());
+  }
+
+  $server = _kharon_validate_server();
+  if (!$server) {
+    // _kharon_validate_server already set the error.
+    return FALSE;
+  }
+  if (empty($name)) {
+    // List sites, if no name given.
+    $sites = _kharon_find_sites($server['path']);
+    $rows = array();
+    foreach ($sites as $name => $config) {
+      $rows[] = array($name);
+    }
+    drush_print_table($rows);
+    return $sites;
+  }
+  else {
+    // List dumps in site.
+    $dumps = _kharon_find_dumps($server['path'] . '/' . $name);
+    $rows = array();
+    foreach ($dumps as $name => $config) {
+      $rows[] = array($name);
+    }
+    drush_print_table($rows);
+    return $dumps;
+  }
+}
+
+/**
  * Validation for the fetch command.
  */
 function drush_kharon_fetch_validate($name = NULL) {
@@ -394,10 +461,11 @@ function drush_kharon_fetch($name) {
       drush_log(dt('Syncing @type files.', array('@type' => $name)), 'status');
 
       $link_dests = array();
-      foreach ($previous_dumps as $filename => $info) {
-        if (file_exists($filename . '/' . $name)) {
-          drush_log(dt('Hardlinking with @dir', array('@dir' => $filename . '/' . $name)), 'debug');
-          $link_dests[] = '--link-dest=' . drush_escapeshellarg($filename . '/' . $name);
+      foreach ($previous_dumps as $prev_dump_name => $info) {
+        $dump_path = $site_path . '/' . $prev_dump_name;
+        if (file_exists($dump_path . '/' . $name)) {
+          drush_log(dt('Hardlinking with @dir', array('@dir' => $dump_path . '/' . $name)), 'debug');
+          $link_dests[] = '--link-dest=' . drush_escapeshellarg($dump_path . '/' . $name);
         }
       }
       if (!drush_shell_exec('rsync -a ' . implode(' ', $link_dests) . ' %s %s', $prefix . ($path[0] == '/' ? '' : $remote['path'] . '/') . $path . '/', $tmp_dir . '/' . $name)) {
@@ -799,6 +867,20 @@ function _kharon_file_dirs($config, $creds, $tmp_db) {
 }
 
 /**
+ * Finds all sites in a server dir.
+ */
+function _kharon_find_sites($dir) {
+  $candidates = drush_scan_directory($dir, '/.*/', array('.', '..', 'CVS'), 0, FALSE);
+  $files = array();
+  foreach ($candidates as $filename => $file) {
+    if (file_exists($filename . '/config')) {
+      $files[$file->basename] = unserialize(file_get_contents($filename . '/config'));
+    }
+  }
+  return $files;
+}
+
+/**
  * Finds all dumps in a site dir.
  */
 function _kharon_find_dumps($dir) {
@@ -806,7 +888,7 @@ function _kharon_find_dumps($dir) {
   $files = array();
   foreach ($candidates as $filename => $file) {
     if (file_exists($filename . '/info')) {
-      $files[$filename] = $filename;
+      $files[$file->basename] = unserialize(file_get_contents($filename . '/info'));
     }
   }
   return $files;
