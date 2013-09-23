@@ -770,6 +770,18 @@ function _kharon_is_client() {
  * Run command at server.
  */
 function _kharon_forward_to_server($command, $args, $options) {
+  if ($res = _kharon_server_invoke($conmand, $args, $options)) {
+    return $res['error_status'];
+  }
+  else {
+    return FALSE;
+  }
+}
+
+/**
+ * Invoke a command at the server.
+ */
+function _kharon_server_invoke($command, $args, $options) {
   if ($server = drush_get_option('kharon-server', NULL)) {
     list($user, $host) = explode('@', $server);
     // We create a fake alias on the fly.
@@ -779,7 +791,7 @@ function _kharon_forward_to_server($command, $args, $options) {
     );
     // Forward to server.
     $res = drush_invoke_process($alias, $command, $args, $options, array('interactive' => TRUE));
-    return $res['error_status'];
+    return $res;
   }
   else {
     return drush_set_error('BAD_SERVER', dt('Invalid or missing server setup.'));
