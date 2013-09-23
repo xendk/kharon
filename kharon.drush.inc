@@ -422,7 +422,15 @@ function drush_kharon_fetch($name) {
   // else {
   //   drush_set_error('CANNOT_LOCK', dt('Could not obtain site lock. Is there another fetch running?'));
   // }
-  $dump_name = (string) time();
+
+  // Info for the info file. (Yeah, really descriptive, I know).
+  $dump_info = array(
+    'timestamp' => (string) time(),
+    'core' => $creds['core'],
+    'file dirs' => array(),
+  );
+
+  $dump_name = $dump_info['timestamp'];
   $tmp_name = $dump_name . '.' . getmypid();
   $tmp_dir = $site_path . '/' . $tmp_name;
 
@@ -472,6 +480,7 @@ function drush_kharon_fetch($name) {
       if (!drush_shell_exec('rsync -a ' . implode(' ', $link_dests) . ' %s %s', $prefix . ($path[0] == '/' ? '' : $remote['path'] . '/') . $path . '/', $tmp_dir . '/' . $name)) {
         return drush_set_error('RSYNC_ERROR', dt('Error copying files.'));
       }
+      $dump_info['file dirs'][] = $name;
     }
     // Clean up file paths in the db.
     // Run scripts.
@@ -480,6 +489,8 @@ function drush_kharon_fetch($name) {
     if (!drush_shell_exec('gzip %s', $tmp_dir . '/database.sql')) {
       return drush_set_error('GZIP_ERROR', dt('Error compressing SQL dump.'));
     }
+    $dump_info['database'] = 'database.sql.gz';
+    $dump_info['compression'] = 'gzip';
     $db->cleanup();
   }
   catch (PDOException $e) {
@@ -491,8 +502,11 @@ function drush_kharon_fetch($name) {
     return drush_set_error('KHARON_ERROR', $e->getMessage());
   }
 
-  // @todo Add some information to this file.
-  touch($tmp_dir . '/info');
+  // Save some info to ease restoring.
+  if (FALSE === file_put_contents($tmp_dir . '/info', serialize($dump_info))) {
+    return drush_set_error('ERROR_SAVING_INFO', dt('Error saving info file.'));
+  }
+
   // Move new dump into place.
   rename($tmp_dir, $site_path . '/' . $dump_name);
 }
