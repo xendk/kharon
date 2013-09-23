@@ -29,6 +29,10 @@ class MySQLTmpDb {
         // Shouldn't happen.
         throw new PDOException(dt('Unknown error creating database "@database".', array('@database' => $this->database)));
       }
+      if (!$this->db->query('USE ' . $this->database)) {
+        // Shouldn't happen.
+        throw new PDOException(dt('Unknown error using database "@database".', array('@database' => $this->database)));
+      }
     }
     catch (PDOException $e) {
       $this->cleanup();

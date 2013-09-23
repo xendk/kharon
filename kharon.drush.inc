@@ -882,7 +882,7 @@ function _kharon_file_dirs($config, $creds, $tmp_db) {
       ->pdo()
       ->query('SELECT value FROM variable WHERE name = "' . $var . '"');
     if ($res && ($val = $res->fetchColumn())) {
-      $result[$name] = $val;
+      $result[$name] = unserialize($val);
     }
     elseif ($name == 'public') {
       // Default location if not configured.
