@@ -346,6 +346,7 @@ function drush_kharon_list($name = NULL) {
   if (empty($name)) {
     // List sites, if no name given.
     $sites = _kharon_find_sites($server['path']);
+    ksort($sites);
     $rows = array();
     foreach ($sites as $name => $config) {
       $rows[] = array($name);
@@ -356,6 +357,7 @@ function drush_kharon_list($name = NULL) {
   else {
     // List dumps in site.
     $dumps = _kharon_find_dumps($server['path'] . '/' . $name);
+    ksort($dumps);
     $rows = array();
     foreach ($dumps as $name => $config) {
       $rows[] = array($name);
