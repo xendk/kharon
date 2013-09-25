@@ -213,7 +213,7 @@ function drush_kharon_register_validate($name = NULL, $remote = NULL, $subsite =
  *
  * Registers a new site server side.
  */
-function drush_kharon_register($name, $remote, $subsite = NULL) {
+function drush_kharon_register($name, $remote  = NULL, $subsite = NULL) {
   if (_kharon_is_client()) {
     return _kharon_forward_to_server('kharon-register', func_get_args(), array());
   }
