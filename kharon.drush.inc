@@ -975,14 +975,15 @@ function _kharon_dump_db($outfile, $creds, $config) {
   $remote = _kharon_parse_remote($config['remote']);
 
   if (!$remote['is_local']) {
-    drush_print(_kharon_ssh_command($remote, $dump_command));
-    // --remove-source-files
+    $dump_command = _kharon_ssh_command($remote, $dump_command);
+    $dump_command .= ' >' . $outfile;
   }
   else {
     $dump_command .= ' --result-file ' . $outfile;
-    if (!drush_shell_exec($dump_command)) {
-      return drush_set_error('DUMP_ERROR', dt('Error dumping database.'));
-    }
+  }
+
+  if (!drush_shell_exec($dump_command)) {
+    return drush_set_error('DUMP_ERROR', dt('Error dumping database.'));
   }
 
   // Safetycheck file.
