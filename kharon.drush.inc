@@ -145,7 +145,7 @@ function drush_kharon_init($dir) {
 
   $mysql_prefix = drush_get_option('mysql-prefix', NULL);
   if (is_null($mysql_prefix)) {
-    $mysql_prefix = drush_prompt('MySQL database prefix', '', FALSE, TRUE);
+    $mysql_prefix = drush_prompt('MySQL database prefix', '', FALSE);
   }
 
   // Let's check that we can use the creds.
