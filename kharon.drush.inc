@@ -899,7 +899,8 @@ function _kharon_is_client() {
  * Run command at server.
  */
 function _kharon_forward_to_server($command, $args, $options) {
-  if ($res = _kharon_server_invoke($conmand, $args, $options)) {
+  drush_log('Forwarding to server.', 'notice');
+  if ($res = _kharon_server_invoke($command, $args, $options)) {
     return $res['error_status'];
   }
   else {
