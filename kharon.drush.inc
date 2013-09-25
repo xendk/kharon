@@ -114,7 +114,7 @@ function drush_kharon_init($dir) {
   }
   // @todo look into -O clear for clearing permissions. Looks like we can
   //   enforce that an agent forwards the key.
-  if (!drush_shell_exec('ssh-keygen -N "" -qf %s', $dir . '/key')) {
+  if (!drush_shell_exec('ssh-keygen -N "" -C "Kharon (%s@%s)" -qf %s', getenv('USER'), php_uname('n'), $dir . '/key')) {
     drush_register_file_for_deletion($dir);
     $output = implode("\n", drush_shell_exec_output());
     return drush_set_error('SSH_KEYGEN_ERROR', dt('Error generating ssh key: @error', array('@error' => $output)));
