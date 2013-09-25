@@ -425,11 +425,18 @@ function drush_kharon_fetch($name) {
     return FALSE;
   }
 
+  $options = array(
+    'kharon' => drush_get_option('kharon'),
+  );
   $args = array($config['remote'], 'db', $config['subsite']);
-  $res = drush_invoke_process('@none', 'kharon-sniff', $args, array(), array('integrate' => TRUE, 'output' => FALSE));
+  $res = drush_invoke_process('@none', 'kharon-sniff', $args, $options, array('integrate' => TRUE, 'output' => FALSE));
   if ($res['error_status'] != 0) {
-    drush_print();
-    drush_print(dt("Error fetching database credentials."));
+    drush_log(dt("Error fetching database credentials:"), 'error');
+    foreach ($res['error_log'] as $typed_errors) {
+      foreach ($typed_errors as $error) {
+        drush_log($error, 'error');
+      }
+    }
     return FALSE;
   }
 
