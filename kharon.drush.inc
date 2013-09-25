@@ -225,14 +225,22 @@ function drush_kharon_register($name, $remote  = NULL, $subsite = NULL) {
     }
   }
 
+  $options = array(
+    'kharon' => drush_get_option('kharon', NULL),
+  );
+  $parsed_remote = _kharon_parse_remote($remote);
+
   // First check that we can connect to the site.
-  $res = drush_invoke_process('@none', 'kharon-sniff', array($remote, 'ssh'), array(), array('integrate' => TRUE));
+  $res = drush_invoke_process('@none', 'kharon-sniff', array($remote, 'ssh'), $options, array('integrate' => TRUE));
   if ($res['error_status'] != 0) {
     // In the case of authentication error, print some more help.
     if (!empty($res['error_log']['SSH_KEY_ERROR'])) {
       drush_print();
       drush_print(dt("You have no obolus..."));
       drush_print();
+      drush_print(dt('Please add the Kharon key to authorized keys on the target machine. This should do it:'));
+      drush_print();
+      drush_print('echo \'' . trim(file_get_contents($server['path'] . '/key.pub')) . '\' | ssh ' . $parsed_remote['user'] . '@' . $parsed_remote['host'] . ' \'mkdir -p $HOME/.ssh && cat >>$HOME/.ssh/authorized_keys\'');
       // @todo: print something about how to get the key to the relevant
       //   server.
     }
