@@ -880,7 +880,7 @@ function _kharon_file_dirs($config, $creds, $tmp_db) {
   foreach ($paths as $name => $var) {
     $res = $tmp_db
       ->pdo()
-      ->query('SELECT value FROM variable WHERE name = "' . $var . '"');
+      ->query('SELECT value FROM ' . $creds['prefix'] . 'variable WHERE name = "' . $var . '"');
     if ($res && ($val = $res->fetchColumn())) {
       $result[$name] = unserialize($val);
     }
