@@ -17,17 +17,29 @@ class KharonFetchCommandCase extends Kharon_CommandTestCase {
     // foreach ($this->sites as $env => $def) {
     // Not testing on D8 just yet.
     foreach (array(6, 7) as $major) {
+      if ($major == 6) {
+        $public_file_path_var = 'file_directory_path';
+      }
+      else {
+        $public_file_path_var = 'file_public_path';
+      }
       $this->log('Testing ' . $major . '.x.');
       $this->resetDrupal();
       $this->setUpDrupal(1, TRUE, $major);
       $env = reset(array_keys($this->sites));
       $def = reset($this->sites);
       $import_name = 'aite-' . $env . $major;
+      // Configuring filepath explicitly so we'll test that the code figures out
+      // the dir properly from the db.
+      mkdir($this->webroot() . '/sites/' . $env . '/public');
+      $this->drush('variable-set', array($public_file_path_var, 'sites/' . $env . '/public'), array(), '@' . $env);
       $site_dir = $this->webroot() . '/sites/' . $env;
       // Create a file to sync.
-      touch($site_dir . '/files/public_file');
+
+      touch($site_dir . '/public/public_file');
       $this->drush('kharon-register 2>&1', array($import_name, $this->webroot(), $env), $options);
-      $this->drush('kharon-fetch 2>&1', array($import_name), $options);
+      $this->drush('kharon-fetch 2>&1', array($import_name), $options + array('d' => TRUE));
+      $this->log($this->getOutput());
       $this->assertFileExists($kharon_dir . '/' . $import_name);
 
       // Find dumps in the site.
