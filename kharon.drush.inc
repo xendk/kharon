@@ -202,7 +202,7 @@ function drush_kharon_register_validate($name = NULL, $remote = NULL, $subsite =
     return drush_set_error('BAD_ARGUMENTS', dt('Missing remote.'));
   }
 
-  if (!($remote = _kharon_parse_remote($where))) {
+  if (!($remote = _kharon_parse_remote($remote))) {
     return drush_set_error('BAD_ARGUMENTS', dt('Invalid remote.'));
   }
 }
