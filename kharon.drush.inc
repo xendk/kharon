@@ -58,7 +58,17 @@ function kharon_drush_command() {
 
   $items['kharon-fetch'] = array(
     'aliases' => array('kf'),
-    'description' => 'Fetch database and files from a site.',
+    'description' => 'Dump site to server.',
+    'arguments' => array(
+      'name' => 'Name of the site.',
+    ),
+    'options' => $common_options,
+    'bootstrap' => DRUSH_BOOTSTRAP_DRUSH,
+  );
+
+  $items['kharon-get'] = array(
+    'aliases' => array('kg'),
+    'description' => 'Get site from server.',
     'arguments' => array(
       'name' => 'Name of the site.',
     ),
@@ -512,6 +522,123 @@ function drush_kharon_fetch($name) {
 }
 
 /**
+ * Valiation for the get command.
+ */
+function drush_kharon_get_validate($site = NULL, $dump = NULL) {
+  if (empty($site)) {
+    return drush_set_error('BAD_ARGUMENTS', dt('You need to provide a site to fetch.'));
+  }
+
+  // @todo @self is probably not good enough. Drush has some context for the
+  //   implicit/specified alias.
+  $res = drush_invoke_process('@self', 'sql-conf', array(), array('show-passwords' => TRUE), array('integrate' => FALSE, 'output' => FALSE));
+  if ($res['error_status'] != 0) {
+    return drush_set_error('NO_LOCAL_SITE', dt("You need to be a site context to get a dump.\n\nEither cd to a site directory, or specify an alias on the command line."));
+  }
+
+  drush_set_option('kharon-creds', $res['object']);
+}
+
+/**
+ * Get command callback.
+ *
+ * Fetches a dump into a local site.
+ */
+function drush_kharon_get($site, $dump = NULL) {
+  $args = array();
+  $local = TRUE;
+  // Pass on remote or server option, depending.
+  if ($server = drush_get_option('kharon-remote')) {
+    $args['kharon-remote'] = $server;
+    $local = FALSE;
+  }
+  elseif ($server = drush_get_option('kharon')) {
+    $args['kharon'] = $server;
+  }
+  else {
+    return drush_set_error('NO_SERVER', dt('Neither remote nor local server specified.'));
+  }
+  $res = drush_invoke_process('none', 'kharon-list', array($site), $args, array('integrate' => TRUE, 'output' => FALSE));
+  if ($res['error_status'] != 0) {
+    drush_print();
+    drush_print(dt("Error fetching database credentials."));
+    return FALSE;
+  }
+
+  $dumps = $res['object'];
+
+  if (count($dumps) < 1) {
+    return drush_set_error('NO_DUMPS', dt('No dumps created yet.'));
+  }
+
+  if (!empty($dump)) {
+    if (!isset($dumps[$dump])) {
+      return drush_set_error('DONT_EXISTS', dt('No such dump.'));
+    }
+    $get_dump = $dumps[$dump];
+  }
+  else {
+    // Sort dumps by timestamp.
+    uasort($dumps, '_kharon_sort_dumps_by_timestamp');
+    $get_dump = end($dumps);
+  }
+
+  // Absolute path to the site folder.
+  $site_path = drush_sitealias_local_site_path(drush_sitealias_get_record('@self'));
+  $parts = explode('/', $site_path);
+
+  // Path to site folder relative to Drupal root.
+  $in_site_path = implode('/', array_reverse(array_slice(array_reverse($parts), 0, 2)));
+
+  // Creds for the local database.
+  $local_creds = drush_get_option('kharon-creds', array());
+
+  if (!file_exists($site_path)) {
+    return drush_set_error('SITE_ERROR', dt('Problem figuring out local site path.'));
+  }
+
+  if ($get_dump['info']['compression'] != 'gzip') {
+    return drush_set_error('COMP_ERROR', dt('Unsupported compression "@compression" used in dump.', array('@compression' => $get_dump['info']['compression'])));
+  }
+
+  $db_file = $get_dump['path'] . '/' . $get_dump['info']['database'];
+  if ($local) {
+    // Get database.
+    // @todo Mysql lib should be responsible for the mysql command line.
+    $command = 'cat %s | gunzip -c | mysql ' . kharon_mysql_creds($local_creds['host'], $local_creds['username'], $local_creds['password']) . ' ' . $local_creds['database'];
+    if (!drush_shell_exec($command, $db_file)) {
+      return drush_set_error('GET_ERROR', dt('Error getting database dump.'));
+    }
+  }
+  else {
+    return drush_set_error('NOT_IMPLEMENTED', dt('Getting remotely not quite implemented yet.'));
+  }
+
+  // Get files.
+  $file_paths = array();
+
+  foreach ($get_dump['info']['file dirs'] as $file_path) {
+    $source_path = $get_dump['path'] . '/' . $file_path;
+    if (!drush_shell_exec('rsync -a %s %s', $source_path . '/', $site_path . '/files/' . $file_path)) {
+      return drush_set_error('RSYNC_ERROR', dt('Error copying files.'));
+    }
+    $file_paths[$file_path] = $in_site_path . '/files/' . $file_path;
+  }
+
+  // Add the core version to the creds.
+  $local_creds['core'] = $get_dump['info']['core'];
+  // Set variables/config pointing to file dirs.
+  if (!_kharon_set_file_dirs($local_creds, $file_paths)) {
+    return FALSE;
+  }
+
+  $res = drush_invoke_process('@self', 'cc', array('all'), array(), array('integrate' => TRUE, 'output' => TRUE));
+  if ($res['error_status'] != 0) {
+    return drush_set_error('ERROR_CLEARING', dt('Error clearing cache in local site.'));
+  }
+}
+
+/**
  * Validation for the sniff command.
  */
 function drush_kharon_sniff_validate($where = NULL, $what = NULL, $arg = NULL) {
@@ -893,6 +1020,47 @@ function _kharon_file_dirs($config, $creds, $tmp_db) {
 }
 
 /**
+ * Configures the current sites file paths.
+ */
+function _kharon_set_file_dirs($creds, $file_paths) {
+  switch ($creds['core']) {
+    case '6.x':
+      $paths = array(
+        'public' => 'file_directory_path',
+      );
+      break;
+
+    case '7.x':
+      $paths = array(
+        'private' => 'file_private_path',
+        'public' => 'file_public_path',
+      );
+      break;
+
+    default:
+      throw new KharonException(dt('Unsupported core version.'));
+  }
+
+  // Connect to the new local database.
+  // @todo This definitely needs to refactored into whatever gets to replace
+  //   MySQLTmpDb.
+  $db = new PDO('mysql:host=' . $creds['host'] . ';charset=utf8', $creds['username'], $creds['password']);
+  if (!$db->query('USE ' . $creds['database'])) {
+    // Shouldn't happen.
+    throw new PDOException(dt('Unknown error using database "@database".', array('@database' => $creds['database'])));
+  }
+
+  foreach ($paths as $name => $var) {
+    $stmt = $db->prepare('INSERT INTO ' . $creds['prefix'] . 'variable (name, value) VALUES (:name, :value) ON DUPLICATE KEY UPDATE value=:value');
+    if (isset($file_paths[$name])) {
+      if (!$stmt->execute(array(':name' => $var, ':value' => serialize($file_paths[$name])))) {
+        return drush_set_error('FILE_DIRS', dt('Error setting file setting.'));
+      }
+    }
+  }
+}
+
+/**
  * Finds all sites in a server dir.
  */
 function _kharon_find_sites($dir) {
@@ -924,4 +1092,17 @@ function _kharon_find_dumps($dir) {
     }
   }
   return $files;
+}
+
+/**
+ * Sort dumps by timestamp.
+ */
+function _kharon_sort_dumps_by_timestamp($a, $b) {
+  // Avoid notices.
+  $a_stamp = isset($a['info']['timestamp']) ? $a['info']['timestamp'] : 0;
+  $b_stamp = isset($b['info']['timestamp']) ? $b['info']['timestamp'] : 0;
+  if ($a_stamp == $b_stamp) {
+    return 0;
+  }
+  return ($a_stamp < $b_stamp) ? -1 : 1;
 }
