@@ -248,7 +248,7 @@ function drush_kharon_register($name, $remote  = NULL, $subsite = NULL) {
   }
 
   // Check sites.
-  $res = drush_invoke_process('@none', 'kharon-sniff', array($remote, 'sites'), array(), array('integrate' => TRUE, 'output' => FALSE));
+  $res = drush_invoke_process('@none', 'kharon-sniff', array($remote, 'sites'), $options, array('integrate' => TRUE, 'output' => FALSE));
   if ($res['error_status'] != 0) {
     drush_print();
     drush_print(dt('Could not get list of sub-sites, sure it is the right path?'));
@@ -284,7 +284,7 @@ function drush_kharon_register($name, $remote  = NULL, $subsite = NULL) {
   // Now we have all the information we need for now. The final check is to see
   // if we can get the database credentials.
   $args = array($remote, 'db', $subsite);
-  $res = drush_invoke_process('none', 'kharon-sniff', $args, array(), array('integrate' => TRUE, 'output' => FALSE));
+  $res = drush_invoke_process('none', 'kharon-sniff', $args, $options, array('integrate' => TRUE, 'output' => FALSE));
   if ($res['error_status'] != 0) {
     if (!empty($res['error_log']['DB_SNIFF_READ_ERROR'])) {
       drush_print();
@@ -672,6 +672,11 @@ function drush_kharon_sniff_validate($where = NULL, $what = NULL, $arg = NULL) {
   if ($what == 'db' && empty($arg)) {
     return drush_set_error('BAD_ARGUMENTS', dt('Missing sub-site.'));
   }
+
+  // Validate server, if it's specified.
+  if (drush_get_option('kharon', NULL)) {
+    _kharon_validate_server();
+  }
 }
 
 /**
@@ -790,6 +795,10 @@ function _kharon_ssh_command($remote, $command) {
   $ssh_options = "-a -o PasswordAuthentication=no -o StrictHostKeyChecking=no";
   $user = drush_escapeshellarg($remote['user']);
   $host = drush_escapeshellarg($remote['host']);
+  if ($server = drush_get_option('kharon-settings', NULL)) {
+    $ssh_options .= " -i " . $server['path'] . '/key';
+  }
+
   return sprintf('ssh %s %s@%s %s', $ssh_options, $user, $host, drush_escapeshellarg($command));
 }
 
