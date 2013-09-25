@@ -197,14 +197,13 @@ function drush_kharon_register_validate($name = NULL, $remote = NULL, $subsite =
     return drush_set_error('BAD_ARGUMENTS', dt('Invalid name.'));
   }
 
-  if (!_kharon_is_client()) {
-    // We're the end of the line, validate some more args.
-    if (empty($remote)) {
-      return drush_set_error('BAD_ARGUMENTS', dt('Missing remote.'));
-    }
-    if (!($remote = _kharon_parse_remote($where))) {
-      return drush_set_error('BAD_ARGUMENTS', dt('Invalid remote.'));
-    }
+  // Check remote before forwarding.
+  if (empty($remote)) {
+    return drush_set_error('BAD_ARGUMENTS', dt('Missing remote.'));
+  }
+
+  if (!($remote = _kharon_parse_remote($where))) {
+    return drush_set_error('BAD_ARGUMENTS', dt('Invalid remote.'));
   }
 }
 
