@@ -193,7 +193,7 @@ function drush_kharon_register_validate($name = NULL, $remote = NULL, $subsite =
   if (empty($name)) {
     return drush_set_error('BAD_ARGUMENTS', dt('You need to provide a name for the site.'));
   }
-  if (!preg_match('/^[a-zA-Z0-9_-]+$/', $name)) {
+  if (!preg_match('/^[.a-zA-Z0-9_-]+$/', $name)) {
     return drush_set_error('BAD_ARGUMENTS', dt('Invalid name.'));
   }
 
