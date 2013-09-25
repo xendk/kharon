@@ -913,19 +913,20 @@ function _kharon_forward_to_server($command, $args, $options) {
  */
 function _kharon_server_invoke($command, $args, $options) {
   if ($server = drush_get_option('kharon-server', NULL)) {
-    list($user, $host) = explode('@', $server);
-    // We create a fake alias on the fly.
-    $alias = array(
-      'remote-host' => $host,
-      'remote-user' => $user,
-    );
-    // Forward to server.
-    $res = drush_invoke_process($alias, $command, $args, $options, array('interactive' => TRUE));
-    return $res;
+    $remote = _kharon_parse_remote($server);
+    if ($remote) {
+      // We create a fake alias on the fly.
+      $alias = array(
+        'remote-host' => $remote['host'],
+        'remote-user' => $remote['user'],
+      );
+      $options['kharon'] = $remote['path'];
+      // Forward to server.
+      $res = drush_invoke_process($alias, $command, $args, $options, array('interactive' => TRUE));
+      return $res;
+    }
   }
-  else {
-    return drush_set_error('BAD_SERVER', dt('Invalid or missing server setup.'));
-  }
+  return drush_set_error('BAD_SERVER', dt('Invalid or missing server setup.'));
 }
 
 /**
