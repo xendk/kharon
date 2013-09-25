@@ -776,8 +776,10 @@ function _kharon_parse_remote($remote) {
  * Wraps a command in a ssh command.
  */
 function _kharon_ssh_command($remote, $command) {
-  // Disable agent forwarding and password authentication.
-  $ssh_options = "-a -o PasswordAuthentication=no";
+  // Disable agent forwarding, password authentication and strict host key
+  // checking. Strict host key checking wont allow us to connect to a new host
+  // when running non-interactively.
+  $ssh_options = "-a -o PasswordAuthentication=no -o StrictHostKeyChecking=no";
   $user = drush_escapeshellarg($remote['user']);
   $host = drush_escapeshellarg($remote['host']);
   return sprintf('ssh %s %s@%s %s', $ssh_options, $user, $host, drush_escapeshellarg($command));
