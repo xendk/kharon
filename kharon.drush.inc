@@ -571,9 +571,7 @@ function drush_kharon_get($site, $dump = NULL) {
   }
   $res = drush_invoke_process('none', 'kharon-list', array($site), $args, array('integrate' => TRUE, 'output' => FALSE));
   if ($res['error_status'] != 0) {
-    drush_print();
-    drush_print(dt("Error fetching database credentials."));
-    return FALSE;
+    return drush_set_error('DONT_EXISTS', dt('No such site.'));
   }
 
   $dumps = $res['object'];
