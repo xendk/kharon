@@ -688,8 +688,8 @@ function drush_kharon_sniff($where, $what, $arg = NULL) {
   $remote = drush_get_option('kharon-remote');
   switch ($what) {
     case 'ssh':
-      // When local, this is a no-op. When not we try to ssh in and see what
-      // happns.
+      // When local, this is a no-op. When not, we try to ssh in and see what
+      // happens.
       if (!$remote['is_local']) {
         if (!drush_shell_exec(_kharon_ssh_command($remote, 'echo OK'))) {
           $output = implode("\n", drush_shell_exec_output());
