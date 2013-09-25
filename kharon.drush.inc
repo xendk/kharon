@@ -149,6 +149,8 @@ function drush_kharon_init($dir) {
   }
 
   // Let's check that we can use the creds.
+  // @todo Direct the user to some help that mentions grant all on `kharon\_%`.*
+  //   to kharon@localhost identified by 'obolus';
   try {
     $pdo = new PDO('mysql:host=' . $mysql_host . ';charset=utf8', $mysql_user, $mysql_pass);
   }
