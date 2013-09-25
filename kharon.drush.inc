@@ -284,7 +284,7 @@ function drush_kharon_register($name, $remote  = NULL, $subsite = NULL) {
   // Now we have all the information we need for now. The final check is to see
   // if we can get the database credentials.
   $args = array($remote, 'db', $subsite);
-  $res = drush_invoke_process('none', 'kharon-sniff', $args, $options, array('integrate' => TRUE, 'output' => FALSE));
+  $res = drush_invoke_process('@none', 'kharon-sniff', $args, $options, array('integrate' => TRUE, 'output' => FALSE));
   if ($res['error_status'] != 0) {
     if (!empty($res['error_log']['DB_SNIFF_READ_ERROR'])) {
       drush_print();
@@ -426,7 +426,7 @@ function drush_kharon_fetch($name) {
   }
 
   $args = array($config['remote'], 'db', $config['subsite']);
-  $res = drush_invoke_process('none', 'kharon-sniff', $args, array(), array('integrate' => TRUE, 'output' => FALSE));
+  $res = drush_invoke_process('@none', 'kharon-sniff', $args, array(), array('integrate' => TRUE, 'output' => FALSE));
   if ($res['error_status'] != 0) {
     drush_print();
     drush_print(dt("Error fetching database credentials."));
@@ -569,7 +569,7 @@ function drush_kharon_get($site, $dump = NULL) {
   else {
     return drush_set_error('NO_SERVER', dt('Neither remote nor local server specified.'));
   }
-  $res = drush_invoke_process('none', 'kharon-list', array($site), $args, array('integrate' => TRUE, 'output' => FALSE));
+  $res = drush_invoke_process('@none', 'kharon-list', array($site), $args, array('integrate' => TRUE, 'output' => FALSE));
   if ($res['error_status'] != 0) {
     return drush_set_error('DONT_EXISTS', dt('No such site.'));
   }
