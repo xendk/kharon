@@ -5,6 +5,15 @@
  * MySQL handling for Kharon.
  */
 
+/**
+ * Class representing a temporary MySQL database.
+ *
+ * @todo This needs to be refactored, much of the logic here is needed for other
+ *   database operations that's have nothing to do with a temporary
+ *   database. Currently, the way to go seems to be to have a generic DbCreds
+ *   class (or perhaps just an interface) with a specific MySQLCreds class,
+ *   which can return commands and PDO objects.
+ */
 class MySQLTmpDb {
   protected $host = NULL;
   protected $user = NULL;
