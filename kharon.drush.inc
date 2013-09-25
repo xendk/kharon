@@ -325,6 +325,8 @@ function drush_kharon_register($name, $remote  = NULL, $subsite = NULL) {
   else {
     return drush_set_error('CANNOT_MAKE_DIR', dt('Cannot make a "@name" directory in the server dir. Please check permissions.', array('@name' => $name)));
   }
+
+  drush_log(dt('Site registered.'), 'ok');
 }
 
 /**
