@@ -833,6 +833,7 @@ function _kharon_sniff_creds($settings) {
       'password' => NULL,
       'database' => NULL,
       'unix_socket' => NULL,
+      'prefix' => '',
     );
     // $config_directories was introduced in D8.
     $creds['core'] = isset($config_directories) ? '8.x' : '7.x';
@@ -843,6 +844,7 @@ function _kharon_sniff_creds($settings) {
     // $creds['port'] = $conn['port'];
     $creds['database'] = $conn['database'];
     $creds['password'] = $conn['password'];
+    $creds['prefix'] = $conn['prefix'];
   }
   elseif (!empty($db_url)) {
     // Drupal 6.
@@ -859,6 +861,7 @@ function _kharon_sniff_creds($settings) {
     // $creds['port'] = $parts['port'];
     $creds['password'] = urldecode($parts['pass']);
     $creds['database'] = trim($parts['path'], '/');
+    $creds['prefix'] = !empty($db_prefix) ? $db_prefix : '';
   }
 
   return $creds;
