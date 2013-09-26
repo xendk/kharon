@@ -356,7 +356,7 @@ function drush_kharon_list_validate($name = NULL) {
 function drush_kharon_list($name = NULL) {
   // Forward upstream, if we're not the server.
   if (_kharon_is_client()) {
-    return _kharon_forward_to_server('kharon-list', func_get_args(), array());
+    return _kharon_forward_to_server('kharon-list', func_get_args(), array(), FALSE);
   }
 
   $server = _kharon_validate_server();
@@ -415,7 +415,7 @@ function drush_kharon_fetch_validate($name = NULL) {
  */
 function drush_kharon_fetch($name) {
   if (_kharon_is_client()) {
-    return _kharon_forward_to_server('kharon-fetch', func_get_args(), array());
+    return _kharon_forward_to_server('kharon-fetch', func_get_args(), array(), FALSE);
   }
 
   $server_settings = drush_get_option('kharon-settings', NULL);
@@ -564,6 +564,7 @@ function drush_kharon_get_validate($site = NULL, $dump = NULL) {
  *
  * Fetches a dump into a local site.
  */
+
 function drush_kharon_get($site, $dump = NULL) {
   $args = array();
   $local = TRUE;
@@ -927,10 +928,18 @@ function _kharon_is_client() {
 /**
  * Run command at server.
  */
-function _kharon_forward_to_server($command, $args, $options) {
+function _kharon_forward_to_server($command, $args, $options, $interactive = TRUE) {
   drush_log('Forwarding to server.', 'notice');
-  if ($res = _kharon_server_invoke($command, $args, $options)) {
-    return $res['error_status'];
+  if ($res = _kharon_server_invoke($command, $args, $options, $interactive)) {
+    if ($res['error_status'] == 0) {
+      if (!$interactive) {
+        return $res['object'];
+      }
+      else {
+        return FALSE;
+      }
+    }
+    return FALSE;
   }
   else {
     return FALSE;
@@ -940,7 +949,7 @@ function _kharon_forward_to_server($command, $args, $options) {
 /**
  * Invoke a command at the server.
  */
-function _kharon_server_invoke($command, $args, $options) {
+function _kharon_server_invoke($command, $args, $options, $interactive = TRUE) {
   if ($server = drush_get_option('kharon-server', NULL)) {
     $remote = _kharon_parse_remote($server);
     if ($remote) {
@@ -950,8 +959,17 @@ function _kharon_server_invoke($command, $args, $options) {
         'remote-user' => $remote['user'],
       );
       $options['kharon'] = $remote['path'];
+      $backend_options = array();
+      // Setting interactive to false doesn't work, as drush uses
+      // array_key_exists().
+      if ($interactive) {
+        $backend_options['interactive'] = TRUE;
+      }
+      else {
+        $backend_options['integrate'] = TRUE;
+      }
       // Forward to server.
-      $res = drush_invoke_process($alias, $command, $args, $options, array('interactive' => TRUE));
+      $res = drush_invoke_process($alias, $command, $args, $options, $backend_options);
       return $res;
     }
   }
