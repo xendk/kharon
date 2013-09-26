@@ -567,14 +567,14 @@ function drush_kharon_get_validate($site = NULL, $dump = NULL) {
 
 function drush_kharon_get($site, $dump = NULL) {
   $args = array();
-  $local = TRUE;
   // Pass on remote server or server option, depending.
   if ($server = drush_get_option('kharon-server')) {
     $args['kharon-server'] = $server;
-    $local = FALSE;
+    $remote = _kharon_parse_remote($server);
   }
   elseif ($server = drush_get_option('kharon')) {
     $args['kharon'] = $server;
+    $remote = FALSE;
   }
   else {
     return drush_set_error('NO_SERVER', dt('Neither remote nor local server specified.'));
@@ -620,16 +620,16 @@ function drush_kharon_get($site, $dump = NULL) {
   }
 
   $db_file = $get_dump['path'] . '/' . $get_dump['info']['database'];
-  if ($local) {
-    // Get database.
-    // @todo Mysql lib should be responsible for the mysql command line.
-    $command = 'cat %s | gunzip -c | mysql ' . kharon_mysql_creds($local_creds['host'], $local_creds['username'], $local_creds['password']) . ' ' . $local_creds['database'];
-    if (!drush_shell_exec($command, $db_file)) {
-      return drush_set_error('GET_ERROR', dt('Error getting database dump.'));
-    }
+  $command = 'cat %s';
+  if ($remote) {
+    $command = _kharon_ssh_command($remote, $command);
   }
-  else {
-    return drush_set_error('NOT_IMPLEMENTED', dt('Getting remotely not quite implemented yet.'));
+
+  // Get database.
+  // @todo Mysql lib should be responsible for the mysql command line.
+  $command .= ' | gunzip -c | mysql ' . kharon_mysql_creds($local_creds['host'], $local_creds['username'], $local_creds['password']) . ' ' . $local_creds['database'];
+  if (!drush_shell_exec($command, $db_file)) {
+    return drush_set_error('GET_ERROR', dt('Error getting database dump.'));
   }
 
   // Get files.
@@ -637,6 +637,9 @@ function drush_kharon_get($site, $dump = NULL) {
 
   foreach ($get_dump['info']['file dirs'] as $file_path) {
     $source_path = $get_dump['path'] . '/' . $file_path;
+    if ($remote) {
+      $source_path = $remote['user'] . '@' . $remote['host'] . ':' . $source_path;
+    }
     if (!drush_shell_exec('rsync -a %s %s', $source_path . '/', $site_path . '/files/' . $file_path)) {
       return drush_set_error('RSYNC_ERROR', dt('Error copying files.'));
     }
