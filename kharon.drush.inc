@@ -567,9 +567,9 @@ function drush_kharon_get_validate($site = NULL, $dump = NULL) {
 function drush_kharon_get($site, $dump = NULL) {
   $args = array();
   $local = TRUE;
-  // Pass on remote or server option, depending.
-  if ($server = drush_get_option('kharon-remote')) {
-    $args['kharon-remote'] = $server;
+  // Pass on remote server or server option, depending.
+  if ($server = drush_get_option('kharon-server')) {
+    $args['kharon-server'] = $server;
     $local = FALSE;
   }
   elseif ($server = drush_get_option('kharon')) {
