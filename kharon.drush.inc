@@ -584,8 +584,7 @@ function drush_kharon_get($site, $dump = NULL) {
   }
 
   $dumps = $res['object'];
-
-  if (count($dumps) < 1) {
+  if (empty($dumps)) {
     return drush_set_error('NO_DUMPS', dt('No dumps created yet.'));
   }
 
