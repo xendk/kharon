@@ -492,6 +492,7 @@ function drush_kharon_fetch($name) {
     $prefix = '';
     if (!$remote['is_local']) {
       $prefix = $remote['user'] . '@' . $remote['host'] . ':';
+      $key_setting = '--rsh "ssh -a -o PasswordAuthentication=no -o StrictHostKeyChecking=no -i ' . $server_settings['path'] . '/key" ';
     }
     // Find previous dumps for hardlinking files.
     $previous_dumps = _kharon_find_dumps($site_path);
@@ -505,7 +506,7 @@ function drush_kharon_fetch($name) {
           $link_dests[] = '--link-dest=' . drush_escapeshellarg($info['path'] . '/' . $name);
         }
       }
-      if (!drush_shell_exec('rsync -a ' . implode(' ', $link_dests) . ' %s %s', $prefix . ($path[0] == '/' ? '' : $remote['path'] . '/') . $path . '/', $tmp_dir . '/' . $name)) {
+      if (!drush_shell_exec('rsync -a ' . $key_setting . implode(' ', $link_dests) . ' %s %s', $prefix . ($path[0] == '/' ? '' : $remote['path'] . '/') . $path . '/', $tmp_dir . '/' . $name)) {
         return drush_set_error('RSYNC_ERROR', dt('Error copying files.'));
       }
       $dump_info['file dirs'][] = $name;
