@@ -1063,8 +1063,8 @@ function _kharon_file_dirs($config, $creds, $tmp_db) {
     $res = $tmp_db
       ->pdo()
       ->query('SELECT value FROM ' . $creds['prefix'] . 'variable WHERE name = "' . $var . '"');
-    if ($res && ($val = $res->fetchColumn())) {
-      $result[$name] = unserialize($val);
+    if ($res && ($val = $res->fetchColumn()) && ($val = unserialize($val))) {
+      $result[$name] = $val;
     }
     elseif ($name == 'public') {
       // Default location if not configured.
