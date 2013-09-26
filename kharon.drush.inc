@@ -538,6 +538,7 @@ function drush_kharon_fetch($name) {
 
   // Move new dump into place.
   rename($tmp_dir, $site_path . '/' . $dump_name);
+  drush_log(dt('Site fetched.'), 'status');
 }
 
 /**
