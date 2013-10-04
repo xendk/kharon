@@ -368,22 +368,22 @@ function drush_kharon_list($name = NULL) {
     // List sites, if no name given.
     $sites = _kharon_find_sites($server['path']);
     ksort($sites);
-    $rows = array();
+    $rows = array(array('Site'));
     foreach ($sites as $name => $config) {
       $rows[] = array($name);
     }
-    drush_print_table($rows);
+    drush_print_table($rows, TRUE);
     return $sites;
   }
   else {
     // List dumps in site.
     $dumps = _kharon_find_dumps($server['path'] . '/' . $name);
     ksort($dumps);
-    $rows = array();
+    $rows = array(array('Dump'));
     foreach ($dumps as $name => $config) {
       $rows[] = array($name);
     }
-    drush_print_table($rows);
+    drush_print_table($rows, TRUE);
     return $dumps;
   }
 }
